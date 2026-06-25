@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>German Flashcards Pro V3</title>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 700px; margin-bottom: 20px; }
+        
+        /* Headers & Buttons */
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        h2, h3 { margin: 0; color: #333; }
+        .icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; transition: transform 0.2s; }
+        .icon-btn:hover { transform: scale(1.1); }
+        .primary-btn { background-color: #007BFF; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        .primary-btn:hover { background-color: #0056b3; }
+        #hidden-upload { display: none; }
+
+        /* Leaderboard */
+        .leaderboard { background: #2c3e50; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
+        .stat-box { text-align: center; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; flex: 1; margin: 0 5px; }
+        .stat-box span { display: block; font-size: 24px; font-weight: bold; }
+        .cat-badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .cat-badge { background: #e74c3c; color: white; padding: 5px 10px; border-radius: 15px; font-size: 13px; cursor: pointer; border: none; transition: transform 0.2s; }
+        .cat-badge:hover { transform: scale(1.05); background: #c0392b; }
+
+        /* Table Grid */
+        .table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+        .table-card { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; cursor: pointer; text-align: center; }
+        .table-card:hover { border-color: #007BFF; background: #e9ecef; }
+        .table-card p { margin: 5px 0 0 0; font-size: 12px; color: #777; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
+        .modal select { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; }
+
+        /* Practice Area */
+        #practice-area { display: none; flex-direction: column; align-items: center; }
+        .card-container { width: 100%; max-width: 400px; height: 200px; perspective: 1000px; margin-bottom: 15px; }
+        .card { width: 100%; height: 100%; position: relative; transition: transform 0.6s; transform-style: preserve-3d; }
+        .card.flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 26px; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; padding: 20px; box-sizing: border-box; }
+        .card-front { background-color: #ffffff; color: #333; }
+        .card-back { background-color: #28a745; color: #fff; transform: rotateY(180deg); }
+        
+        /* Spell Check & Tools */
+        .spell-check-area { display: flex; width: 100%; max-width: 400px; gap: 10px; margin-bottom: 15px; }
+        .spell-check-area input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
+        .spell-check-area button { padding: 0 20px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        #spell-result { font-weight: bold; margin-bottom: 10px; display: none; }
+        
+        .card-tools { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tool-btn { background: #eee; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        #hint-text { font-size: 18px; color: #007BFF; font-weight: bold; margin-bottom: 15px; letter-spacing: 1px; display: none; text-align: center; }
+
+        /* Controls (Categories & Comments) */
+        #controls { display: none; width: 100%; max-width: 400px; flex-direction: column; gap: 15px; }
+        .categories { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .cat-btn { background: transparent; color: #555; border: 2px solid #ccc; padding: 8px 12px; font-size: 13px; border-radius: 5px; cursor: pointer; }
+        .cat-btn.selected { background-color: #17a2b8; border-color: #17a2b8; color: white; }
+        .comment-box { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; resize: vertical; box-sizing: border-box; font-family: inherit;}
+        .save-btn { background-color: #28a745; color: white; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="dashboard-view">
+        <div class="header-bar">
+            <h2>Dashboard</h2>
+            <button class="icon-btn" onclick="document.getElementById('hidden-upload').click()" title="Sync Excel">🔄</button>
+            <input type="file" id="hidden-upload" accept=".xlsx, .xls" onchange="handleFileUpload(event)" />
+        </div>
+
+        <div class="leaderboard">
+            <div class="stat-row">
+                <div class="stat-box">Total Words<span id="lb-total">0</span></div>
+                <div class="stat-box">Practiced<span id="lb-practiced">0</span></div>
+                <div style="text-align: right; font-size: 12px;">
+                    Filter by Date:<br>
+                    <input type="date" id="date-filter" onchange="renderLeaderboard()" style="padding:5px; border-radius:5px; margin-top:5px; color: black;">
+                    <br><a href="#" onclick="document.getElementById('date-filter').value=''; renderLeaderboard();" style="color:#aaa;">Clear</a>
+                </div>
+            </div>
+            <div style="font-size: 12px; margin-bottom: 10px; text-align: center;">Click a category to start a Global Practice session:</div>
+            <div class="cat-badges" id="lb-categories">
+                </div>
+        </div>
+
+        <h3 style="margin-bottom: 15px;">My Tables</h3>
+        <div class="table-grid" id="table-grid"></div>
+    </div>
+
+    <div class="modal-overlay" id="practice-modal">
+        <div class="modal">
+            <h3 id="modal-title">Table Name</h3>
+            <p id="modal-stats">0 / 0 words practiced</p>
+            
+            <button class="primary-btn" onclick="initPractice('fresh')">Start Fresh (Word 1)</button>
+            <button class="primary-btn" onclick="initPractice('resume')" style="background-color: #17a2b8;">Resume Where I Left Off</button>
+            
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            
+            <div style="text-align: left; font-size: 14px; font-weight: bold;">Practice by Category:</div>
+            <select id="modal-cat-select">
+                <option value="">-- Select Category --</option>
+            </select>
+            <button class="primary-btn" onclick="initPractice('category')" style="background-color: #6c757d;">Start Category</button>
+            
+            <button onclick="closeModal()" style="margin-top: 20px; background: none; border: none; color: #888; cursor: pointer; text-decoration: underline;">Cancel</button>
+        </div>
+    </div>
+
+    <div class="container" id="practice-area">
+        <div class="header-bar" style="width: 100%; max-width: 400px; border: none;">
+            <span id="progress-text" style="font-weight: bold; color: #555;">Word 1 of X</span>
+            <button class="icon-btn" onclick="exitPractice()">✖️</button>
+        </div>
+
+        <div class="card-container" onclick="flipCard()">
+            <div class="card" id="flashcard">
+                <div class="card-face card-front">
+                    <span style="font-size: 12px; color: #888; position: absolute; top: 10px;">English</span>
+                    <span id="word-english">Word</span>
+                </div>
+                <div class="card-face card-back">
+                    <span style="font-size: 12px; color: #e0e0e0; position: absolute; top: 10px;">German</span>
+                    <span id="word-german">Wort</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="spell-result"></div>
+
+        <div class="spell-check-area" id="front-tools">
+            <input type="text" id="spell-input" placeholder="Type German word here..." onkeypress="if(event.key === 'Enter') checkSpelling()">
+            <button onclick="checkSpelling()">Check</button>
+        </div>
+
+        <div class="card-tools" id="hint-tools">
+            <button class="tool-btn" onclick="showHint()">💡 Hint</button>
+            <button class="tool-btn" onclick="speakGerman()">🔊 Listen</button>
+        </div>
+        <div id="hint-text"></div>
+
+        <div id="controls">
+            <div class="categories" id="category-container"></div>
+            <textarea id="comment-input" class="comment-box" rows="2" placeholder="Add custom notes or comments here..."></textarea>
+            <button class="save-btn" onclick="nextCard()">Save & Next</button>
+        </div>
+    </div>
+
+    <script>
+        let appData = {}; 
+        let practiceQueue = []; // [{tableName, index, wordData}]
+        let currentIndex = 0;
+        let selectedTags = new Set();
+        let selectedTableForModal = "";
+        
+        const categoryOptions = ["Easy", "Medium", "Difficult", "Article Mistake", "Spelling Mistake", "Not So Important"];
+
+        // 1. Initialize App
+        window.onload = function() {
+            const savedData = localStorage.getItem("germanVocabV3");
+            if (savedData) appData = JSON.parse(savedData);
+            
+            // Populate category dropdown in modal
+            const catSelect = document.getElementById("modal-cat-select");
+            categoryOptions.forEach(cat => {
+                const opt = document.createElement("option");
+                opt.value = cat; opt.innerText = cat;
+                catSelect.appendChild(opt);
+            });
+
+            renderDashboard();
+        };
+
+        // 2. Excel Upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const indexSheet = workbook.Sheets["Table_Index"];
+                if (!indexSheet) return alert("Missing 'Table_Index' sheet.");
+                
+                const indexData = XLSX.utils.sheet_to_json(indexSheet, {header: 1});
+
+                for (let i = 1; i < indexData.length; i++) {
+                    if (indexData[i].length >= 3) {
+                        const sheetName = indexData[i][0];
+                        const tableName = indexData[i][1];
+                        const tableRange = indexData[i][2];
+
+                        const sheet = workbook.Sheets[sheetName];
+                        const rawData = XLSX.utils.sheet_to_json(sheet, {range: tableRange, header: 1});
+                        
+                        if (!appData[tableName]) appData[tableName] = [];
+
+                        for (let r = 1; r < rawData.length; r++) {
+                            const ger = rawData[r][0];
+                            const eng = rawData[r][1];
+                            if (ger && eng) {
+                                // Only add if it doesn't exist, preserving history
+                                const exists = appData[tableName].find(w => w.german === ger);
+                                if (!exists) {
+                                    appData[tableName].push({ 
+                                        german: ger, english: eng, 
+                                        categories: [], comment: "", lastPracticed: "" 
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                saveData();
+                renderDashboard();
+                alert("Database synced successfully!");
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function saveData() {
+            localStorage.setItem("germanVocabV3", JSON.stringify(appData));
+        }
+
+        // 3. Render Dashboard & Leaderboard
+        function renderDashboard() {
+            renderLeaderboard();
+            const grid = document.getElementById("table-grid");
+            grid.innerHTML = "";
+
+            for (const [tableName, words] of Object.entries(appData)) {
+                const practiced = words.filter(w => w.categories.length > 0).length;
+                const card = document.createElement("div");
+                card.className = "table-card";
+                card.onclick = () => openModal(tableName);
+                card.innerHTML = `<h3>${tableName}</h3><p>${practiced} / ${words.length} words done</p>`;
+                grid.appendChild(card);
+            }
+        }
+
+        function renderLeaderboard() {
+            const dateFilter = document.getElementById("date-filter").value;
+            let totalWords = 0;
+            let practicedWords = 0;
+            let catCounts = {};
+            categoryOptions.forEach(c => catCounts[c] = 0);
+
+            for (const table in appData) {
+                totalWords += appData[table].length;
+                appData[table].forEach(w => {
+                    // Check date filter
+                    if (dateFilter && w.lastPracticed !== dateFilter) return;
+                    
+                    if (w.categories.length > 0) {
+                        practicedWords++;
+                        w.categories.forEach(c => { if(catCounts[c] !== undefined) catCounts[c]++; });
+                    }
+                });
+            }
+
+            document.getElementById("lb-total").innerText = totalWords;
+            document.getElementById("lb-practiced").innerText = practicedWords;
+
+            const badgeContainer = document.getElementById("lb-categories");
+            badgeContainer.innerHTML = "";
+            for (const [cat, count] of Object.entries(catCounts)) {
+                if (count > 0 || !dateFilter) {
+                    const btn = document.createElement("button");
+                    btn.className = "cat-badge";
+                    btn.innerText = `${count} ${cat}`;
+                    // Global Practice trigger
+                    btn.onclick = () => initGlobalPractice(cat, dateFilter);
+                    badgeContainer.appendChild(btn);
+                }
+            }
+        }
+
+        // 4. Modal Logic
+        function openModal(tableName) {
+            selectedTableForModal = tableName;
+            const words = appData[tableName];
+            const practiced = words.filter(w => w.categories.length > 0).length;
+            
+            document.getElementById("modal-title").innerText = tableName;
+            document.getElementById("modal-stats").innerText = `${practiced} / ${words.length} categorized`;
+            document.getElementById("practice-modal").style.display = "flex";
+        }
+        function closeModal() { document.getElementById("practice-modal").style.display = "none"; }
+
+        // 5. Practice Queue Generation
+        function initPractice(mode) {
+            closeModal();
+            practiceQueue = [];
+            const tableData = appData[selectedTableForModal];
+
+            if (mode === 'fresh') {
+                tableData.forEach((w, i) => practiceQueue.push({tableName: selectedTableForModal, index: i, data: w}));
+            } 
+            else if (mode === 'resume') {
+                // Find first uncategorized, then queue from there
+                let startIdx = tableData.findIndex(w => w.categories.length === 0);
+                if (startIdx === -1) startIdx = 0; // If all done, start from 0
+                for(let i = startIdx; i < tableData.length; i++){
+                    practiceQueue.push({tableName: selectedTableForModal, index: i, data: tableData[i]});
+                }
+            } 
+            else if (mode === 'category') {
+                const targetCat = document.getElementById("modal-cat-select").value;
+                if(!targetCat) return alert("Please select a category first.");
+                tableData.forEach((w, i) => {
+                    if (w.categories.includes(targetCat)) practiceQueue.push({tableName: selectedTableForModal, index: i, data: w});
+                });
+            }
+
+            if (practiceQueue.length === 0) return alert("No words match this criteria.");
+            startUI();
+        }
+
+        function initGlobalPractice(category, dateStr) {
+            practiceQueue = [];
+            for (const [tableName, words] of Object.entries(appData)) {
+                words.forEach((w, i) => {
+                    let match = w.categories.includes(category);
+                    if (dateStr && w.lastPracticed !== dateStr) match = false;
+                    
+                    if (match) practiceQueue.push({tableName, index: i, data: w});
+                });
+            }
+            if (practiceQueue.length === 0) return alert("No words found.");
+            startUI();
+        }
+
+        // 6. Practice UI Execution
+        function startUI() {
+            document.getElementById("dashboard-view").style.display = "none";
+            document.getElementById("practice-area").style.display = "flex";
+            renderCategoryButtons();
+            currentIndex = 0;
+            loadCard();
+        }
+
+        function loadCard() {
+            if (currentIndex >= practiceQueue.length) {
+                alert("Session Complete!");
+                exitPractice();
+                return;
+            }
+
+            const currentObj = practiceQueue[currentIndex];
+            document.getElementById("progress-text").innerText = `${currentObj.tableName} - ${currentIndex + 1} of ${practiceQueue.length}`;
+            
+            document.getElementById("word-english").innerText = currentObj.data.english;
+            document.getElementById("word-german").innerText = currentObj.data.german;
+            
+            // Reset UI States
+            document.getElementById("flashcard").classList.remove("flipped");
+            document.getElementById("controls").style.display = "none";
+            document.getElementById("front-tools").style.display = "flex";
+            document.getElementById("hint-tools").style.display = "flex";
+            document.getElementById("hint-text").style.display = "none";
+            
+            document.getElementById("spell-input").value = "";
+            document.getElementById("spell-result").style.display = "none";
+            document.getElementById("comment-input").value = currentObj.data.comment || "";
+
+            // Load Categories
+            selectedTags = new Set(currentObj.data.categories);
+            document.querySelectorAll(".cat-btn").forEach(btn => {
+                if (selectedTags.has(btn.innerText)) btn.classList.add("selected");
+                else btn.classList.remove("selected");
+            });
+            
+            document.getElementById("spell-input").focus();
+        }
+
+        // 7. Tools & Actions
+        function checkSpelling() {
+            const input = document.getElementById("spell-input").value.trim();
+            const target = practiceQueue[currentIndex].data.german.trim();
+            const resultBox = document.getElementById("spell-result");
+            
+            if (input === "") return; // Do nothing if empty
+
+            // We do a case-insensitive check to be slightly forgiving
+            if (input.toLowerCase() === target.toLowerCase()) {
+                resultBox.innerText = "✅ Correct!";
+                resultBox.style.color = "#28a745";
+            } else {
+                resultBox.innerText = "❌ Incorrect.";
+                resultBox.style.color = "#dc3545";
+            }
+            
+            resultBox.style.display = "block";
+            flipCard();
+        }
+
+        function flipCard() {
+            document.getElementById("flashcard").classList.add("flipped");
+            document.getElementById("controls").style.display = "flex";
+            document.getElementById("front-tools").style.display = "none";
+            document.getElementById("hint-tools").style.display = "none";
+            document.getElementById("hint-text").style.display = "none";
+            speakGerman();
+        }
+
+        function showHint() {
+            const target = practiceQueue[currentIndex].data.german;
+            const words = target.split(' ');
+            let hint = "";
+
+            if (words.length >= 3) {
+                // Scramble Words
+                hint = words.sort(() => Math.random() - 0.5).join(' ');
+            } else {
+                // Show blanks: d-s A--o
+                hint = words.map(w => {
+                    if (w.length <= 2) return w;
+                    return w[0] + '-'.repeat(w.length - 2) + w[w.length - 1];
+                }).join(' ');
+            }
+
+            document.getElementById("hint-text").innerText = hint;
+            document.getElementById("hint-text").style.display = "block";
+        }
+
+        function speakGerman() {
+            const word = practiceQueue[currentIndex].data.german;
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.lang = 'de-DE';
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function renderCategoryButtons() {
+            const container = document.getElementById("category-container");
+            container.innerHTML = "";
+            categoryOptions.forEach(cat => {
+                const btn = document.createElement("button");
+                btn.className = "cat-btn";
+                btn.innerText = cat;
+                btn.onclick = () => {
+                    if (selectedTags.has(cat)) { selectedTags.delete(cat); btn.classList.remove("selected"); }
+                    else { selectedTags.add(cat); btn.classList.add("selected"); }
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // 8. Save & Exit
+        function nextCard() {
+            const currentObj = practiceQueue[currentIndex];
+            const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+            
+            // Save data back to the main AppData object
+            appData[currentObj.tableName][currentObj.index].categories = Array.from(selectedTags);
+            appData[currentObj.tableName][currentObj.index].comment = document.getElementById("comment-input").value;
+            appData[currentObj.tableName][currentObj.index].lastPracticed = today;
+            
+            saveData();
+            currentIndex++;
+            loadCard();
+        }
+
+        function exitPractice() {
+            document.getElementById("practice-area").style.display = "none";
+            document.getElementById("dashboard-view").style.display = "block";
+            renderDashboard();
+        }
+    </script>
+</body>
+</html>
