@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>German Flashcards Pro V3</title>
+    <title>German Flashcards - Cloud Synced</title>
+    
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 700px; margin-bottom: 20px; }
         
-        /* Headers & Buttons */
         .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         h2, h3 { margin: 0; color: #333; }
         .icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; transition: transform 0.2s; }
@@ -18,7 +22,9 @@
         .primary-btn:hover { background-color: #0056b3; }
         #hidden-upload { display: none; }
 
-        /* Leaderboard */
+        /* Cloud Sync Banner */
+        #sync-status { text-align: center; font-size: 14px; font-weight: bold; color: white; background-color: #f39c12; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; }
+
         .leaderboard { background: #2c3e50; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; }
         .stat-box { text-align: center; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; flex: 1; margin: 0 5px; }
@@ -27,18 +33,15 @@
         .cat-badge { background: #e74c3c; color: white; padding: 5px 10px; border-radius: 15px; font-size: 13px; cursor: pointer; border: none; transition: transform 0.2s; }
         .cat-badge:hover { transform: scale(1.05); background: #c0392b; }
 
-        /* Table Grid */
         .table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
         .table-card { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; cursor: pointer; text-align: center; }
         .table-card:hover { border-color: #007BFF; background: #e9ecef; }
         .table-card p { margin: 5px 0 0 0; font-size: 12px; color: #777; }
 
-        /* Modal */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
         .modal select { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; }
 
-        /* Practice Area */
         #practice-area { display: none; flex-direction: column; align-items: center; }
         .card-container { width: 100%; max-width: 400px; height: 200px; perspective: 1000px; margin-bottom: 15px; }
         .card { width: 100%; height: 100%; position: relative; transition: transform 0.6s; transform-style: preserve-3d; }
@@ -47,7 +50,6 @@
         .card-front { background-color: #ffffff; color: #333; }
         .card-back { background-color: #28a745; color: #fff; transform: rotateY(180deg); }
         
-        /* Spell Check & Tools */
         .spell-check-area { display: flex; width: 100%; max-width: 400px; gap: 10px; margin-bottom: 15px; }
         .spell-check-area input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
         .spell-check-area button { padding: 0 20px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
@@ -57,7 +59,6 @@
         .tool-btn { background: #eee; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 14px; }
         #hint-text { font-size: 18px; color: #007BFF; font-weight: bold; margin-bottom: 15px; letter-spacing: 1px; display: none; text-align: center; }
 
-        /* Controls (Categories & Comments) */
         #controls { display: none; width: 100%; max-width: 400px; flex-direction: column; gap: 15px; }
         .categories { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
         .cat-btn { background: transparent; color: #555; border: 2px solid #ccc; padding: 8px 12px; font-size: 13px; border-radius: 5px; cursor: pointer; }
@@ -69,6 +70,8 @@
 <body>
 
     <div class="container" id="dashboard-view">
+        <div id="sync-status">Connecting to Cloud...</div>
+        
         <div class="header-bar">
             <h2>Dashboard</h2>
             <button class="icon-btn" onclick="document.getElementById('hidden-upload').click()" title="Sync Excel">🔄</button>
@@ -77,7 +80,7 @@
 
         <div class="leaderboard">
             <div class="stat-row">
-                <div class="stat-box">Total Words<span id="lb-total">0</span></div>
+                <div class="stat-box">Total<span id="lb-total">0</span></div>
                 <div class="stat-box">Practiced<span id="lb-practiced">0</span></div>
                 <div style="text-align: right; font-size: 12px;">
                     Filter by Date:<br>
@@ -85,9 +88,8 @@
                     <br><a href="#" onclick="document.getElementById('date-filter').value=''; renderLeaderboard();" style="color:#aaa;">Clear</a>
                 </div>
             </div>
-            <div style="font-size: 12px; margin-bottom: 10px; text-align: center;">Click a category to start a Global Practice session:</div>
-            <div class="cat-badges" id="lb-categories">
-                </div>
+            <div style="font-size: 12px; margin-bottom: 10px; text-align: center;">Click to start a Global Practice session:</div>
+            <div class="cat-badges" id="lb-categories"></div>
         </div>
 
         <h3 style="margin-bottom: 15px;">My Tables</h3>
@@ -98,18 +100,11 @@
         <div class="modal">
             <h3 id="modal-title">Table Name</h3>
             <p id="modal-stats">0 / 0 words practiced</p>
-            
-            <button class="primary-btn" onclick="initPractice('fresh')">Start Fresh (Word 1)</button>
-            <button class="primary-btn" onclick="initPractice('resume')" style="background-color: #17a2b8;">Resume Where I Left Off</button>
-            
+            <button class="primary-btn" onclick="initPractice('fresh')">Start Fresh</button>
+            <button class="primary-btn" onclick="initPractice('resume')" style="background-color: #17a2b8;">Resume</button>
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-            
-            <div style="text-align: left; font-size: 14px; font-weight: bold;">Practice by Category:</div>
-            <select id="modal-cat-select">
-                <option value="">-- Select Category --</option>
-            </select>
+            <select id="modal-cat-select"><option value="">-- Select Category --</option></select>
             <button class="primary-btn" onclick="initPractice('category')" style="background-color: #6c757d;">Start Category</button>
-            
             <button onclick="closeModal()" style="margin-top: 20px; background: none; border: none; color: #888; cursor: pointer; text-decoration: underline;">Cancel</button>
         </div>
     </div>
@@ -119,7 +114,6 @@
             <span id="progress-text" style="font-weight: bold; color: #555;">Word 1 of X</span>
             <button class="icon-btn" onclick="exitPractice()">✖️</button>
         </div>
-
         <div class="card-container" onclick="flipCard()">
             <div class="card" id="flashcard">
                 <div class="card-face card-front">
@@ -132,42 +126,87 @@
                 </div>
             </div>
         </div>
-
         <div id="spell-result"></div>
-
         <div class="spell-check-area" id="front-tools">
             <input type="text" id="spell-input" placeholder="Type German word here..." onkeypress="if(event.key === 'Enter') checkSpelling()">
             <button onclick="checkSpelling()">Check</button>
         </div>
-
         <div class="card-tools" id="hint-tools">
             <button class="tool-btn" onclick="showHint()">💡 Hint</button>
             <button class="tool-btn" onclick="speakGerman()">🔊 Listen</button>
         </div>
         <div id="hint-text"></div>
-
         <div id="controls">
             <div class="categories" id="category-container"></div>
-            <textarea id="comment-input" class="comment-box" rows="2" placeholder="Add custom notes or comments here..."></textarea>
+            <textarea id="comment-input" class="comment-box" rows="2" placeholder="Add custom notes..."></textarea>
             <button class="save-btn" onclick="nextCard()">Save & Next</button>
         </div>
     </div>
 
     <script>
+        // ==========================================
+        // 1. LIVE FIREBASE CONFIGURATION (CONNECTED)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCJMDK0OP-Lw6Bvhj8RaBZjqvpgWndTAao",
+            authDomain: "german-flashcards-5e519.firebaseapp.com",
+            projectId: "german-flashcards-5e519",
+            storageBucket: "german-flashcards-5e519.firebasestorage.app",
+            messagingSenderId: "412566872637",
+            appId: "1:412566872637:web:4c1e754db9ebbab9ff0054"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ==========================================
+        // 2. APP LOGIC
+        // ==========================================
         let appData = {}; 
-        let practiceQueue = []; // [{tableName, index, wordData}]
+        let practiceQueue = [];
         let currentIndex = 0;
         let selectedTags = new Set();
         let selectedTableForModal = "";
         
         const categoryOptions = ["Easy", "Medium", "Difficult", "Article Mistake", "Spelling Mistake", "Not So Important"];
 
-        // 1. Initialize App
-        window.onload = function() {
-            const savedData = localStorage.getItem("germanVocabV3");
-            if (savedData) appData = JSON.parse(savedData);
-            
-            // Populate category dropdown in modal
+        window.onload = async function() {
+            const syncLabel = document.getElementById("sync-status");
+            syncLabel.style.display = "block";
+
+            try {
+                // Pull from Firebase Cloud Database
+                const doc = await db.collection("vocabApp").doc("masterData").get();
+                
+                if (doc.exists) {
+                    appData = doc.data();
+                    syncLabel.innerText = "✅ Cloud Synced";
+                    syncLabel.style.backgroundColor = "#28a745";
+                } else {
+                    // Smart Migration fallback if cloud is fresh
+                    const savedLocalData = localStorage.getItem("germanVocabV3");
+                    if (savedLocalData) {
+                        appData = JSON.parse(savedLocalData);
+                        await db.collection("vocabApp").doc("masterData").set(appData); 
+                        syncLabel.innerText = "✅ Local Data Migrated to Cloud!";
+                        syncLabel.style.backgroundColor = "#28a745";
+                    } else {
+                        syncLabel.innerText = "No Data. Please upload your Excel file.";
+                        syncLabel.style.backgroundColor = "#e74c3c";
+                    }
+                }
+            } catch (error) {
+                console.error("Firebase Error:", error);
+                syncLabel.innerText = "❌ Cloud Error. Check your security configurations.";
+                syncLabel.style.backgroundColor = "#e74c3c";
+                
+                // Backup parsing if offline
+                const savedLocalData = localStorage.getItem("germanVocabV3");
+                if (savedLocalData) appData = JSON.parse(savedLocalData);
+            }
+
+            setTimeout(() => { syncLabel.style.display = "none"; }, 3000);
+
             const catSelect = document.getElementById("modal-cat-select");
             categoryOptions.forEach(cat => {
                 const opt = document.createElement("option");
@@ -178,7 +217,14 @@
             renderDashboard();
         };
 
-        // 2. Excel Upload
+        // 3. Save Changes
+        function saveData() {
+            localStorage.setItem("germanVocabV3", JSON.stringify(appData));
+            db.collection("vocabApp").doc("masterData").set(appData)
+              .then(() => console.log("Saved to Cloud"))
+              .catch(err => console.error("Cloud Save Failed", err));
+        }
+
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -207,7 +253,6 @@
                             const ger = rawData[r][0];
                             const eng = rawData[r][1];
                             if (ger && eng) {
-                                // Only add if it doesn't exist, preserving history
                                 const exists = appData[tableName].find(w => w.german === ger);
                                 if (!exists) {
                                     appData[tableName].push({ 
@@ -221,16 +266,11 @@
                 }
                 saveData();
                 renderDashboard();
-                alert("Database synced successfully!");
+                alert("Database synced successfully to your Cloud!");
             };
             reader.readAsArrayBuffer(file);
         }
 
-        function saveData() {
-            localStorage.setItem("germanVocabV3", JSON.stringify(appData));
-        }
-
-        // 3. Render Dashboard & Leaderboard
         function renderDashboard() {
             renderLeaderboard();
             const grid = document.getElementById("table-grid");
@@ -256,9 +296,7 @@
             for (const table in appData) {
                 totalWords += appData[table].length;
                 appData[table].forEach(w => {
-                    // Check date filter
                     if (dateFilter && w.lastPracticed !== dateFilter) return;
-                    
                     if (w.categories.length > 0) {
                         practicedWords++;
                         w.categories.forEach(c => { if(catCounts[c] !== undefined) catCounts[c]++; });
@@ -276,14 +314,12 @@
                     const btn = document.createElement("button");
                     btn.className = "cat-badge";
                     btn.innerText = `${count} ${cat}`;
-                    // Global Practice trigger
                     btn.onclick = () => initGlobalPractice(cat, dateFilter);
                     badgeContainer.appendChild(btn);
                 }
             }
         }
 
-        // 4. Modal Logic
         function openModal(tableName) {
             selectedTableForModal = tableName;
             const words = appData[tableName];
@@ -295,7 +331,6 @@
         }
         function closeModal() { document.getElementById("practice-modal").style.display = "none"; }
 
-        // 5. Practice Queue Generation
         function initPractice(mode) {
             closeModal();
             practiceQueue = [];
@@ -303,24 +338,21 @@
 
             if (mode === 'fresh') {
                 tableData.forEach((w, i) => practiceQueue.push({tableName: selectedTableForModal, index: i, data: w}));
-            } 
-            else if (mode === 'resume') {
-                // Find first uncategorized, then queue from there
+            } else if (mode === 'resume') {
                 let startIdx = tableData.findIndex(w => w.categories.length === 0);
-                if (startIdx === -1) startIdx = 0; // If all done, start from 0
+                if (startIdx === -1) startIdx = 0;
                 for(let i = startIdx; i < tableData.length; i++){
                     practiceQueue.push({tableName: selectedTableForModal, index: i, data: tableData[i]});
                 }
-            } 
-            else if (mode === 'category') {
+            } else if (mode === 'category') {
                 const targetCat = document.getElementById("modal-cat-select").value;
-                if(!targetCat) return alert("Please select a category first.");
+                if(!targetCat) return alert("Select a category first.");
                 tableData.forEach((w, i) => {
                     if (w.categories.includes(targetCat)) practiceQueue.push({tableName: selectedTableForModal, index: i, data: w});
                 });
             }
 
-            if (practiceQueue.length === 0) return alert("No words match this criteria.");
+            if (practiceQueue.length === 0) return alert("No words match.");
             startUI();
         }
 
@@ -330,7 +362,6 @@
                 words.forEach((w, i) => {
                     let match = w.categories.includes(category);
                     if (dateStr && w.lastPracticed !== dateStr) match = false;
-                    
                     if (match) practiceQueue.push({tableName, index: i, data: w});
                 });
             }
@@ -338,7 +369,6 @@
             startUI();
         }
 
-        // 6. Practice UI Execution
         function startUI() {
             document.getElementById("dashboard-view").style.display = "none";
             document.getElementById("practice-area").style.display = "flex";
@@ -356,11 +386,9 @@
 
             const currentObj = practiceQueue[currentIndex];
             document.getElementById("progress-text").innerText = `${currentObj.tableName} - ${currentIndex + 1} of ${practiceQueue.length}`;
-            
             document.getElementById("word-english").innerText = currentObj.data.english;
             document.getElementById("word-german").innerText = currentObj.data.german;
             
-            // Reset UI States
             document.getElementById("flashcard").classList.remove("flipped");
             document.getElementById("controls").style.display = "none";
             document.getElementById("front-tools").style.display = "flex";
@@ -371,7 +399,6 @@
             document.getElementById("spell-result").style.display = "none";
             document.getElementById("comment-input").value = currentObj.data.comment || "";
 
-            // Load Categories
             selectedTags = new Set(currentObj.data.categories);
             document.querySelectorAll(".cat-btn").forEach(btn => {
                 if (selectedTags.has(btn.innerText)) btn.classList.add("selected");
@@ -381,15 +408,13 @@
             document.getElementById("spell-input").focus();
         }
 
-        // 7. Tools & Actions
         function checkSpelling() {
             const input = document.getElementById("spell-input").value.trim();
             const target = practiceQueue[currentIndex].data.german.trim();
             const resultBox = document.getElementById("spell-result");
             
-            if (input === "") return; // Do nothing if empty
+            if (input === "") return;
 
-            // We do a case-insensitive check to be slightly forgiving
             if (input.toLowerCase() === target.toLowerCase()) {
                 resultBox.innerText = "✅ Correct!";
                 resultBox.style.color = "#28a745";
@@ -417,10 +442,8 @@
             let hint = "";
 
             if (words.length >= 3) {
-                // Scramble Words
                 hint = words.sort(() => Math.random() - 0.5).join(' ');
             } else {
-                // Show blanks: d-s A--o
                 hint = words.map(w => {
                     if (w.length <= 2) return w;
                     return w[0] + '-'.repeat(w.length - 2) + w[w.length - 1];
@@ -453,17 +476,15 @@
             });
         }
 
-        // 8. Save & Exit
         function nextCard() {
             const currentObj = practiceQueue[currentIndex];
-            const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+            const today = new Date().toISOString().split('T')[0];
             
-            // Save data back to the main AppData object
             appData[currentObj.tableName][currentObj.index].categories = Array.from(selectedTags);
             appData[currentObj.tableName][currentObj.index].comment = document.getElementById("comment-input").value;
             appData[currentObj.tableName][currentObj.index].lastPracticed = today;
             
-            saveData();
+            saveData(); 
             currentIndex++;
             loadCard();
         }
