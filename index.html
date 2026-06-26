@@ -2,27 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>German Flashcards - Cloud Synced</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="manifest" href="manifest.json">
+
+    <title>German Flashcards Pro</title>
     
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 700px; margin-bottom: 20px; }
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #777777;
+            --border-color: #dddddd;
+            --modal-overlay: rgba(0,0,0,0.5);
+            --header-border: #eeeeee;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #f0f0f0;
+            --text-muted: #aaaaaa;
+            --border-color: #333333;
+            --modal-overlay: rgba(0,0,0,0.8);
+            --header-border: #333333;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; transition: background 0.3s, color 0.3s; }
         
-        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        h2, h3 { margin: 0; color: #333; }
-        .icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; transition: transform 0.2s; }
+        .container { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 700px; margin-bottom: 20px; transition: background 0.3s; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid var(--header-border); padding-bottom: 10px; }
+        h2, h3 { margin: 0; color: var(--text-main); }
+        .icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; transition: transform 0.2s; color: var(--text-main); display: flex; align-items: center; justify-content: center; }
         .icon-btn:hover { transform: scale(1.1); }
         .primary-btn { background-color: #007BFF; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
         .primary-btn:hover { background-color: #0056b3; }
         #hidden-upload { display: none; }
 
-        /* Cloud Sync Banner */
+        select { background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px; border-radius: 5px; }
+
         #sync-status { text-align: center; font-size: 14px; font-weight: bold; color: white; background-color: #f39c12; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; }
 
         .leaderboard { background: #2c3e50; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
@@ -31,39 +57,39 @@
         .stat-box span { display: block; font-size: 24px; font-weight: bold; }
         .cat-badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
         .cat-badge { background: #e74c3c; color: white; padding: 5px 10px; border-radius: 15px; font-size: 13px; cursor: pointer; border: none; transition: transform 0.2s; }
-        .cat-badge:hover { transform: scale(1.05); background: #c0392b; }
-
+        
         .table-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
-        .table-card { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; border-radius: 8px; cursor: pointer; text-align: center; }
-        .table-card:hover { border-color: #007BFF; background: #e9ecef; }
-        .table-card p { margin: 5px 0 0 0; font-size: 12px; color: #777; }
+        .table-card { background: var(--bg-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; cursor: pointer; text-align: center; transition: border-color 0.2s; }
+        .table-card:hover { border-color: #007BFF; }
+        .table-card p { margin: 5px 0 0 0; font-size: 12px; color: var(--text-muted); }
 
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .modal { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
-        .modal select { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-overlay); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: var(--card-bg); padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
+        .modal select { width: 100%; margin: 10px 0; }
 
         #practice-area { display: none; flex-direction: column; align-items: center; }
         .card-container { width: 100%; max-width: 400px; height: 200px; perspective: 1000px; margin-bottom: 15px; }
         .card { width: 100%; height: 100%; position: relative; transition: transform 0.6s; transform-style: preserve-3d; }
         .card.flipped { transform: rotateY(180deg); }
         .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 26px; font-weight: bold; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; padding: 20px; box-sizing: border-box; }
-        .card-front { background-color: #ffffff; color: #333; }
+        
+        .card-front { background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); }
         .card-back { background-color: #28a745; color: #fff; transform: rotateY(180deg); }
         
         .spell-check-area { display: flex; width: 100%; max-width: 400px; gap: 10px; margin-bottom: 15px; }
-        .spell-check-area input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
+        .spell-check-area input { flex: 1; padding: 12px; background: var(--bg-color); color: var(--text-main); border: 2px solid var(--border-color); border-radius: 8px; font-size: 16px; }
         .spell-check-area button { padding: 0 20px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         #spell-result { font-weight: bold; margin-bottom: 10px; display: none; }
         
         .card-tools { display: flex; gap: 10px; margin-bottom: 15px; }
-        .tool-btn { background: #eee; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .tool-btn { background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 14px; }
         #hint-text { font-size: 18px; color: #007BFF; font-weight: bold; margin-bottom: 15px; letter-spacing: 1px; display: none; text-align: center; }
 
         #controls { display: none; width: 100%; max-width: 400px; flex-direction: column; gap: 15px; }
         .categories { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-        .cat-btn { background: transparent; color: #555; border: 2px solid #ccc; padding: 8px 12px; font-size: 13px; border-radius: 5px; cursor: pointer; }
+        .cat-btn { background: transparent; color: var(--text-main); border: 2px solid var(--border-color); padding: 8px 12px; font-size: 13px; border-radius: 5px; cursor: pointer; }
         .cat-btn.selected { background-color: #17a2b8; border-color: #17a2b8; color: white; }
-        .comment-box { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; resize: vertical; box-sizing: border-box; font-family: inherit;}
+        .comment-box { width: 100%; padding: 10px; border-radius: 8px; background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); resize: vertical; box-sizing: border-box; font-family: inherit;}
         .save-btn { background-color: #28a745; color: white; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; }
     </style>
 </head>
@@ -72,9 +98,21 @@
     <div class="container" id="dashboard-view">
         <div id="sync-status">Connecting to Cloud...</div>
         
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 14px;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+                Profile: 
+                <select id="profile-select" onchange="switchProfile()" style="max-width: 120px;"></select>
+                <button class="icon-btn" onclick="createNewProfile()" title="Add New User" style="font-size: 16px; margin: 0; padding: 5px; background: var(--border-color); border-radius: 5px;">➕</button>
+            </div>
+            <div>
+                <button class="tool-btn" onclick="toggleDarkMode()">🌙 Theme</button>
+                <button class="tool-btn" onclick="exportExcel()">💾 Export</button>
+            </div>
+        </div>
+
         <div class="header-bar">
             <h2>Dashboard</h2>
-            <button class="icon-btn" onclick="document.getElementById('hidden-upload').click()" title="Sync Excel">🔄</button>
+            <button class="icon-btn" onclick="document.getElementById('hidden-upload').click()" title="Sync New Excel Tables" style="font-size: 16px;">🔄 Sync Data</button>
             <input type="file" id="hidden-upload" accept=".xlsx, .xls" onchange="handleFileUpload(event)" />
         </div>
 
@@ -88,7 +126,6 @@
                     <br><a href="#" onclick="document.getElementById('date-filter').value=''; renderLeaderboard();" style="color:#aaa;">Clear</a>
                 </div>
             </div>
-            <div style="font-size: 12px; margin-bottom: 10px; text-align: center;">Click to start a Global Practice session:</div>
             <div class="cat-badges" id="lb-categories"></div>
         </div>
 
@@ -102,22 +139,22 @@
             <p id="modal-stats">0 / 0 words practiced</p>
             <button class="primary-btn" onclick="initPractice('fresh')">Start Fresh</button>
             <button class="primary-btn" onclick="initPractice('resume')" style="background-color: #17a2b8;">Resume</button>
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--border-color);">
             <select id="modal-cat-select"><option value="">-- Select Category --</option></select>
             <button class="primary-btn" onclick="initPractice('category')" style="background-color: #6c757d;">Start Category</button>
-            <button onclick="closeModal()" style="margin-top: 20px; background: none; border: none; color: #888; cursor: pointer; text-decoration: underline;">Cancel</button>
+            <button onclick="closeModal()" style="margin-top: 20px; background: none; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline;">Cancel</button>
         </div>
     </div>
 
     <div class="container" id="practice-area">
         <div class="header-bar" style="width: 100%; max-width: 400px; border: none;">
-            <span id="progress-text" style="font-weight: bold; color: #555;">Word 1 of X</span>
+            <span id="progress-text" style="font-weight: bold; color: var(--text-muted);">Word 1 of X</span>
             <button class="icon-btn" onclick="exitPractice()">✖️</button>
         </div>
         <div class="card-container" onclick="flipCard()">
             <div class="card" id="flashcard">
                 <div class="card-face card-front">
-                    <span style="font-size: 12px; color: #888; position: absolute; top: 10px;">English</span>
+                    <span style="font-size: 12px; color: var(--text-muted); position: absolute; top: 10px;">English</span>
                     <span id="word-english">Word</span>
                 </div>
                 <div class="card-face card-back">
@@ -128,7 +165,7 @@
         </div>
         <div id="spell-result"></div>
         <div class="spell-check-area" id="front-tools">
-            <input type="text" id="spell-input" placeholder="Type German word here..." onkeypress="if(event.key === 'Enter') checkSpelling()">
+            <input type="text" id="spell-input" placeholder="Type German word..." onkeypress="if(event.key === 'Enter') checkSpelling()">
             <button onclick="checkSpelling()">Check</button>
         </div>
         <div class="card-tools" id="hint-tools">
@@ -145,7 +182,7 @@
 
     <script>
         // ==========================================
-        // 1. LIVE FIREBASE CONFIGURATION (CONNECTED)
+        // 1. FIREBASE CONFIGURATION 
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyCJMDK0OP-Lw6Bvhj8RaBZjqvpgWndTAao",
@@ -160,71 +197,122 @@
         const db = firebase.firestore();
 
         // ==========================================
-        // 2. APP LOGIC
+        // 2. STATE VARIABLES
         // ==========================================
         let appData = {}; 
         let practiceQueue = [];
         let currentIndex = 0;
         let selectedTags = new Set();
         let selectedTableForModal = "";
-        
         const categoryOptions = ["Easy", "Medium", "Difficult", "Article Mistake", "Spelling Mistake", "Not So Important"];
+        
+        // Profiles & Theme
+        let knownProfiles = JSON.parse(localStorage.getItem("knownProfiles")) || ["main"];
+        let currentProfile = localStorage.getItem("vocabProfile") || "main";
+        
+        if (localStorage.getItem("theme") === "dark") document.body.setAttribute("data-theme", "dark");
 
-        window.onload = async function() {
-            const syncLabel = document.getElementById("sync-status");
-            syncLabel.style.display = "block";
-
-            try {
-                // Pull from Firebase Cloud Database
-                const doc = await db.collection("vocabApp").doc("masterData").get();
-                
-                if (doc.exists) {
-                    appData = doc.data();
-                    syncLabel.innerText = "✅ Cloud Synced";
-                    syncLabel.style.backgroundColor = "#28a745";
-                } else {
-                    // Smart Migration fallback if cloud is fresh
-                    const savedLocalData = localStorage.getItem("germanVocabV3");
-                    if (savedLocalData) {
-                        appData = JSON.parse(savedLocalData);
-                        await db.collection("vocabApp").doc("masterData").set(appData); 
-                        syncLabel.innerText = "✅ Local Data Migrated to Cloud!";
-                        syncLabel.style.backgroundColor = "#28a745";
-                    } else {
-                        syncLabel.innerText = "No Data. Please upload your Excel file.";
-                        syncLabel.style.backgroundColor = "#e74c3c";
-                    }
-                }
-            } catch (error) {
-                console.error("Firebase Error:", error);
-                syncLabel.innerText = "❌ Cloud Error. Check your security configurations.";
-                syncLabel.style.backgroundColor = "#e74c3c";
-                
-                // Backup parsing if offline
-                const savedLocalData = localStorage.getItem("germanVocabV3");
-                if (savedLocalData) appData = JSON.parse(savedLocalData);
-            }
-
-            setTimeout(() => { syncLabel.style.display = "none"; }, 3000);
-
+        // ==========================================
+        // 3. INITIALIZATION & SYNC
+        // ==========================================
+        window.onload = function() {
+            renderProfileDropdown();
+            
             const catSelect = document.getElementById("modal-cat-select");
             categoryOptions.forEach(cat => {
                 const opt = document.createElement("option");
                 opt.value = cat; opt.innerText = cat;
                 catSelect.appendChild(opt);
             });
-
-            renderDashboard();
+            loadCloudData();
         };
 
-        // 3. Save Changes
+        function toggleDarkMode() {
+            const isDark = document.body.getAttribute("data-theme") === "dark";
+            if (isDark) {
+                document.body.removeAttribute("data-theme");
+                localStorage.setItem("theme", "light");
+            } else {
+                document.body.setAttribute("data-theme", "dark");
+                localStorage.setItem("theme", "dark");
+            }
+        }
+
+        function renderProfileDropdown() {
+            const select = document.getElementById("profile-select");
+            select.innerHTML = "";
+            knownProfiles.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p; opt.innerText = p;
+                select.appendChild(opt);
+            });
+            select.value = currentProfile;
+        }
+
+        function createNewProfile() {
+            const newName = prompt("Enter Username (e.g., John):");
+            if (!newName || newName.trim() === "") return;
+
+            const cleanName = newName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            if (!knownProfiles.includes(cleanName)) {
+                knownProfiles.push(cleanName);
+                localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles));
+            }
+
+            currentProfile = cleanName;
+            localStorage.setItem("vocabProfile", currentProfile);
+            renderProfileDropdown();
+
+            appData = {}; 
+            loadCloudData(); 
+        }
+
+        function switchProfile() {
+            currentProfile = document.getElementById("profile-select").value;
+            localStorage.setItem("vocabProfile", currentProfile);
+            appData = {};
+            loadCloudData();
+        }
+
+        async function loadCloudData() {
+            const syncLabel = document.getElementById("sync-status");
+            syncLabel.style.display = "block";
+            syncLabel.innerText = "Loading " + currentProfile + " profile...";
+
+            try {
+                const docName = "masterData_" + currentProfile;
+                const doc = await db.collection("vocabApp").doc(docName).get();
+                
+                if (doc.exists) {
+                    appData = doc.data();
+                    syncLabel.innerText = "✅ Synced: " + currentProfile;
+                    syncLabel.style.backgroundColor = "#28a745";
+                } else {
+                    appData = {}; 
+                    syncLabel.innerText = "No Data. Please Sync Excel Data.";
+                    syncLabel.style.backgroundColor = "#e74c3c";
+                }
+            } catch (error) {
+                console.error("Firebase Error:", error);
+                syncLabel.innerText = "❌ Cloud Error.";
+                syncLabel.style.backgroundColor = "#e74c3c";
+            }
+
+            setTimeout(() => { syncLabel.style.display = "none"; }, 3000);
+            renderDashboard();
+        }
+
         function saveData() {
-            localStorage.setItem("germanVocabV3", JSON.stringify(appData));
-            db.collection("vocabApp").doc("masterData").set(appData)
+            const docName = "masterData_" + currentProfile;
+            db.collection("vocabApp").doc(docName).set(appData)
               .then(() => console.log("Saved to Cloud"))
               .catch(err => console.error("Cloud Save Failed", err));
         }
 
+        // ==========================================
+        // 4. EXCEL IMPORT & EXPORT
+        // ==========================================
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -238,11 +326,17 @@
                 
                 const indexData = XLSX.utils.sheet_to_json(indexSheet, {header: 1});
 
+                // Track the specific order of the tables from the Excel file
+                let newTableOrder = [];
+
                 for (let i = 1; i < indexData.length; i++) {
                     if (indexData[i].length >= 3) {
                         const sheetName = indexData[i][0];
                         const tableName = indexData[i][1];
                         const tableRange = indexData[i][2];
+
+                        // Build the strict order list
+                        if (!newTableOrder.includes(tableName)) newTableOrder.push(tableName);
 
                         const sheet = workbook.Sheets[sheetName];
                         const rawData = XLSX.utils.sheet_to_json(sheet, {range: tableRange, header: 1});
@@ -255,45 +349,85 @@
                             if (ger && eng) {
                                 const exists = appData[tableName].find(w => w.german === ger);
                                 if (!exists) {
-                                    appData[tableName].push({ 
-                                        german: ger, english: eng, 
-                                        categories: [], comment: "", lastPracticed: "" 
-                                    });
+                                    appData[tableName].push({ german: ger, english: eng, categories: [], comment: "", lastPracticed: "" });
                                 }
                             }
                         }
                     }
                 }
+                
+                // Save the exact table order into memory
+                appData._tableOrder = newTableOrder;
+                
                 saveData();
                 renderDashboard();
-                alert("Database synced successfully to your Cloud!");
+                alert("Excel synced successfully! Table order updated.");
             };
             reader.readAsArrayBuffer(file);
         }
 
+        function exportExcel() {
+            if (Object.keys(appData).length === 0) return alert("No data to export.");
+            
+            let exportArray = [];
+            // Use strict order if available
+            const order = appData._tableOrder || Object.keys(appData).filter(k => k !== '_tableOrder');
+            
+            order.forEach(tableName => {
+                if (tableName === '_tableOrder') return;
+                const words = appData[tableName];
+                if (!words) return;
+                
+                words.forEach(w => {
+                    exportArray.push({
+                        Table: tableName,
+                        German: w.german,
+                        English: w.english,
+                        Categories: w.categories.join(", "),
+                        LastPracticed: w.lastPracticed,
+                        Comment: w.comment
+                    });
+                });
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportArray);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Backup Data");
+            XLSX.writeFile(wb, `Vocab_Backup_${currentProfile}.xlsx`);
+        }
+
+        // ==========================================
+        // 5. UI & PRACTICE LOGIC
+        // ==========================================
         function renderDashboard() {
             renderLeaderboard();
             const grid = document.getElementById("table-grid");
             grid.innerHTML = "";
 
-            for (const [tableName, words] of Object.entries(appData)) {
+            // ALWAYS render using the saved table order!
+            const order = appData._tableOrder || Object.keys(appData).filter(k => k !== '_tableOrder');
+
+            order.forEach(tableName => {
+                if (tableName === '_tableOrder') return;
+                const words = appData[tableName];
+                if (!words) return; // safeguard
+
                 const practiced = words.filter(w => w.categories.length > 0).length;
                 const card = document.createElement("div");
                 card.className = "table-card";
                 card.onclick = () => openModal(tableName);
                 card.innerHTML = `<h3>${tableName}</h3><p>${practiced} / ${words.length} words done</p>`;
                 grid.appendChild(card);
-            }
+            });
         }
 
         function renderLeaderboard() {
             const dateFilter = document.getElementById("date-filter").value;
-            let totalWords = 0;
-            let practicedWords = 0;
-            let catCounts = {};
+            let totalWords = 0; let practicedWords = 0; let catCounts = {};
             categoryOptions.forEach(c => catCounts[c] = 0);
 
             for (const table in appData) {
+                if (table === '_tableOrder') continue; // Skip memory key
                 totalWords += appData[table].length;
                 appData[table].forEach(w => {
                     if (dateFilter && w.lastPracticed !== dateFilter) return;
@@ -324,7 +458,6 @@
             selectedTableForModal = tableName;
             const words = appData[tableName];
             const practiced = words.filter(w => w.categories.length > 0).length;
-            
             document.getElementById("modal-title").innerText = tableName;
             document.getElementById("modal-stats").innerText = `${practiced} / ${words.length} categorized`;
             document.getElementById("practice-modal").style.display = "flex";
@@ -336,22 +469,16 @@
             practiceQueue = [];
             const tableData = appData[selectedTableForModal];
 
-            if (mode === 'fresh') {
-                tableData.forEach((w, i) => practiceQueue.push({tableName: selectedTableForModal, index: i, data: w}));
-            } else if (mode === 'resume') {
+            if (mode === 'fresh') tableData.forEach((w, i) => practiceQueue.push({tableName: selectedTableForModal, index: i, data: w}));
+            else if (mode === 'resume') {
                 let startIdx = tableData.findIndex(w => w.categories.length === 0);
                 if (startIdx === -1) startIdx = 0;
-                for(let i = startIdx; i < tableData.length; i++){
-                    practiceQueue.push({tableName: selectedTableForModal, index: i, data: tableData[i]});
-                }
+                for(let i = startIdx; i < tableData.length; i++) practiceQueue.push({tableName: selectedTableForModal, index: i, data: tableData[i]});
             } else if (mode === 'category') {
                 const targetCat = document.getElementById("modal-cat-select").value;
                 if(!targetCat) return alert("Select a category first.");
-                tableData.forEach((w, i) => {
-                    if (w.categories.includes(targetCat)) practiceQueue.push({tableName: selectedTableForModal, index: i, data: w});
-                });
+                tableData.forEach((w, i) => { if (w.categories.includes(targetCat)) practiceQueue.push({tableName: selectedTableForModal, index: i, data: w}); });
             }
-
             if (practiceQueue.length === 0) return alert("No words match.");
             startUI();
         }
@@ -359,6 +486,7 @@
         function initGlobalPractice(category, dateStr) {
             practiceQueue = [];
             for (const [tableName, words] of Object.entries(appData)) {
+                if (tableName === '_tableOrder') continue; // Skip memory key
                 words.forEach((w, i) => {
                     let match = w.categories.includes(category);
                     if (dateStr && w.lastPracticed !== dateStr) match = false;
@@ -394,7 +522,6 @@
             document.getElementById("front-tools").style.display = "flex";
             document.getElementById("hint-tools").style.display = "flex";
             document.getElementById("hint-text").style.display = "none";
-            
             document.getElementById("spell-input").value = "";
             document.getElementById("spell-result").style.display = "none";
             document.getElementById("comment-input").value = currentObj.data.comment || "";
@@ -404,7 +531,6 @@
                 if (selectedTags.has(btn.innerText)) btn.classList.add("selected");
                 else btn.classList.remove("selected");
             });
-            
             document.getElementById("spell-input").focus();
         }
 
@@ -412,16 +538,10 @@
             const input = document.getElementById("spell-input").value.trim();
             const target = practiceQueue[currentIndex].data.german.trim();
             const resultBox = document.getElementById("spell-result");
-            
             if (input === "") return;
 
-            if (input.toLowerCase() === target.toLowerCase()) {
-                resultBox.innerText = "✅ Correct!";
-                resultBox.style.color = "#28a745";
-            } else {
-                resultBox.innerText = "❌ Incorrect.";
-                resultBox.style.color = "#dc3545";
-            }
+            if (input.toLowerCase() === target.toLowerCase()) { resultBox.innerText = "✅ Correct!"; resultBox.style.color = "#28a745"; } 
+            else { resultBox.innerText = "❌ Incorrect."; resultBox.style.color = "#dc3545"; }
             
             resultBox.style.display = "block";
             flipCard();
@@ -439,26 +559,14 @@
         function showHint() {
             const target = practiceQueue[currentIndex].data.german;
             const words = target.split(' ');
-            let hint = "";
-
-            if (words.length >= 3) {
-                hint = words.sort(() => Math.random() - 0.5).join(' ');
-            } else {
-                hint = words.map(w => {
-                    if (w.length <= 2) return w;
-                    return w[0] + '-'.repeat(w.length - 2) + w[w.length - 1];
-                }).join(' ');
-            }
-
+            let hint = words.length >= 3 ? words.sort(() => Math.random() - 0.5).join(' ') : words.map(w => w.length <= 2 ? w : w[0] + '-'.repeat(w.length - 2) + w[w.length - 1]).join(' ');
             document.getElementById("hint-text").innerText = hint;
             document.getElementById("hint-text").style.display = "block";
         }
 
         function speakGerman() {
-            const word = practiceQueue[currentIndex].data.german;
-            const utterance = new SpeechSynthesisUtterance(word);
-            utterance.lang = 'de-DE';
-            window.speechSynthesis.speak(utterance);
+            const utterance = new SpeechSynthesisUtterance(practiceQueue[currentIndex].data.german);
+            utterance.lang = 'de-DE'; window.speechSynthesis.speak(utterance);
         }
 
         function renderCategoryButtons() {
@@ -466,8 +574,7 @@
             container.innerHTML = "";
             categoryOptions.forEach(cat => {
                 const btn = document.createElement("button");
-                btn.className = "cat-btn";
-                btn.innerText = cat;
+                btn.className = "cat-btn"; btn.innerText = cat;
                 btn.onclick = () => {
                     if (selectedTags.has(cat)) { selectedTags.delete(cat); btn.classList.remove("selected"); }
                     else { selectedTags.add(cat); btn.classList.add("selected"); }
@@ -479,7 +586,6 @@
         function nextCard() {
             const currentObj = practiceQueue[currentIndex];
             const today = new Date().toISOString().split('T')[0];
-            
             appData[currentObj.tableName][currentObj.index].categories = Array.from(selectedTags);
             appData[currentObj.tableName][currentObj.index].comment = document.getElementById("comment-input").value;
             appData[currentObj.tableName][currentObj.index].lastPracticed = today;
