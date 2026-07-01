@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="manifest" href="manifest.json">
+
+    <title>German Flashcards LMS V6</title>
+    
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f0f2f5; --card-bg: #ffffff; --text-main: #333333; --text-muted: #777777;
+            --border-color: #dddddd; --modal-overlay: rgba(0,0,0,0.5); --header-border: #eeeeee;
+            --hub-hover: #e9ecef;
+        }
+        [data-theme="dark"] {
+            --bg-color: #121212; --card-bg: #1e1e1e; --text-main: #f0f0f0; --text-muted: #aaaaaa;
+            --border-color: #333333; --modal-overlay: rgba(0,0,0,0.8); --header-border: #333333;
+            --hub-hover: #2d2d2d;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; transition: background 0.3s, color 0.3s; }
+        .container { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 700px; margin-bottom: 20px; }
+        
+        .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid var(--header-border); padding-bottom: 10px; }
+        h2, h3 { margin: 0; color: var(--text-main); }
+        .icon-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-main); display: flex; align-items: center; justify-content: center; }
+        .primary-btn { background-color: #007BFF; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        select { background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px; border-radius: 5px; }
+
+        #sync-status { text-align: center; font-size: 14px; font-weight: bold; color: white; background-color: #f39c12; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; }
+
+        /* Navigation Breadcrumbs */
+        .breadcrumb { font-size: 14px; margin-bottom: 15px; color: #007BFF; cursor: pointer; font-weight: bold; }
+
+        /* The 5 Main Hubs & Grids */
+        .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; }
+        .hub-card { background: var(--bg-color); border: 2px solid var(--border-color); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
+        .hub-card:hover { transform: translateY(-3px); border-color: #007BFF; background: var(--hub-hover); }
+        .hub-icon { font-size: 40px; margin-bottom: 10px; }
+        .hub-title { font-weight: bold; font-size: 16px; }
+
+        .table-card { background: var(--bg-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; cursor: pointer; text-align: center; }
+        .table-card:hover { border-color: #007BFF; }
+
+        /* Practice Area Shared */
+        #practice-area { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; }
+        .practice-wrapper { width: 100%; display: none; flex-direction: column; align-items: center; }
+        
+        /* Modals & Inputs */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-overlay); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal { background: var(--card-bg); padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
+        
+        .custom-input { width: 100%; padding: 12px; background: var(--bg-color); color: var(--text-main); border: 2px solid var(--border-color); border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px; }
+        .check-btn { padding: 12px 20px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 15px;}
+        .card-tools { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; justify-content: center;}
+        .tool-btn { background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        
+        /* Flashcard (Vocab) */
+        .card-container { width: 100%; height: 220px; perspective: 1000px; margin-bottom: 15px; cursor: pointer;}
+        .card { width: 100%; height: 100%; position: relative; transition: transform 0.6s; transform-style: preserve-3d; }
+        .card.flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; padding: 20px; box-sizing: border-box; border: 1px solid var(--border-color); }
+        .card-front { background-color: var(--card-bg); color: var(--text-main); }
+        .card-back { background-color: #28a745; color: #fff; transform: rotateY(180deg); }
+        .plural-text { font-size: 14px; font-style: italic; opacity: 0.8; margin-top: 10px; }
+
+        /* Sentences */
+        .sentence-box { background: var(--bg-color); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 15px; width: 100%; text-align: center; font-size: 18px; font-weight: bold; box-sizing: border-box;}
+        textarea.custom-input { resize: vertical; min-height: 80px; }
+
+        /* Grammar Grid */
+        .grammar-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        .grammar-table th, .grammar-table td { border: 1px solid var(--border-color); padding: 12px; text-align: center; }
+        .grammar-table th { background: var(--bg-color); font-weight: bold; }
+        .hidden-cell { background: #34495e; color: #34495e; cursor: pointer; transition: background 0.3s, color 0.3s; border-radius: 4px; }
+        .hidden-cell.revealed { background: transparent; color: var(--text-main); cursor: default; }
+
+        /* Controls & Categories */
+        #controls { display: none; width: 100%; flex-direction: column; gap: 15px; }
+        .categories { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .cat-btn { background: transparent; color: var(--text-main); border: 2px solid var(--border-color); padding: 8px 12px; font-size: 13px; border-radius: 5px; cursor: pointer; }
+        .cat-btn.selected { background-color: #17a2b8; border-color: #17a2b8; color: white; }
+        .save-btn { background-color: #28a745; color: white; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        #spell-result { font-weight: bold; margin-bottom: 10px; text-align: center; font-size: 18px; }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="main-view">
+        <div id="sync-status">Connecting to Cloud...</div>
+        
+        <!-- Top Toolbar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 14px;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+                Profile: 
+                <select id="profile-select" onchange="switchProfile()" style="max-width: 120px;"></select>
+                <button class="icon-btn" onclick="createNewProfile()" style="font-size: 16px; padding: 5px; border-radius: 5px; border: 1px solid var(--border-color);">➕</button>
+                <button class="icon-btn" onclick="triggerDeleteData()" style="font-size: 16px; padding: 5px; border-radius: 5px; background: #ffebee; border: 1px solid #ffcdd2; color: #d32f2f;">🗑️</button>
+            </div>
+            <div>
+                <button class="tool-btn" onclick="toggleDarkMode()">🌙 Theme</button>
+            </div>
+        </div>
+
+        <div class="header-bar">
+            <h2>LMS Dashboard</h2>
+            <button class="icon-btn" onclick="document.getElementById('hidden-upload').click()" style="font-size: 16px; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 5px;">🔄 Sync Excel</button>
+            <input type="file" id="hidden-upload" accept=".xlsx, .xls" style="display:none;" onchange="handleFileUpload(event)" />
+        </div>
+
+        <!-- Breadcrumb Navigation -->
+        <div id="breadcrumb" class="breadcrumb" style="display: none;" onclick="goBack()">← Back to Hubs</div>
+
+        <!-- STAGE 1: The 5 Hubs -->
+        <div id="view-hubs" class="hub-grid">
+            <div class="hub-card" onclick="openLevelSelection('Vocabulary')"><div class="hub-icon">📚</div><div class="hub-title">Vocabulary</div></div>
+            <div class="hub-card" onclick="openLevelSelection('Verbs')"><div class="hub-icon">🏃‍♂️</div><div class="hub-title">Verbs</div></div>
+            <div class="hub-card" onclick="openLevelSelection('FillBlanks')"><div class="hub-icon">🧩</div><div class="hub-title">Fill in Blanks</div></div>
+            <div class="hub-card" onclick="openLevelSelection('Sentences')"><div class="hub-icon">💬</div><div class="hub-title">Sentences</div></div>
+            <div class="hub-card" onclick="openLevelSelection('Grammar')"><div class="hub-icon">📊</div><div class="hub-title">Grammar Tables</div></div>
+        </div>
+
+        <!-- STAGE 2: Level Selection (A1, A2, etc) -->
+        <div id="view-levels" class="hub-grid" style="display: none;"></div>
+
+        <!-- STAGE 3: Table Selection -->
+        <div id="view-tables" class="table-grid" style="display: none;"></div>
+    </div>
+
+    <!-- PRE-PRACTICE MODAL -->
+    <div class="modal-overlay" id="practice-modal">
+        <div class="modal">
+            <h3 id="modal-title">Table Name</h3>
+            <p id="modal-stats">0 / 0 items practiced</p>
+            <button class="primary-btn" onclick="initPractice('fresh')">Start Fresh</button>
+            <button class="primary-btn" onclick="initPractice('resume')" style="background-color: #17a2b8;">Resume</button>
+            <button onclick="closeModal()" style="margin-top: 20px; background: none; border: none; color: var(--text-muted); cursor: pointer; text-decoration: underline;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- PRACTICE AREA -->
+    <div class="container" id="practice-area">
+        <div class="header-bar" style="width: 100%; border: none; padding-bottom: 0;">
+            <span id="progress-text" style="font-weight: bold; color: var(--text-muted);">Item 1 of X</span>
+            <button class="icon-btn" onclick="exitPractice()">✖️</button>
+        </div>
+        
+        <div id="spell-result"></div>
+
+        <!-- MODE 1: Vocabulary (Flashcard) -->
+        <div id="mode-vocab" class="practice-wrapper">
+            <div class="card-container" onclick="flipVocabCard()">
+                <div class="card" id="vocab-card">
+                    <div class="card-face card-front">
+                        <span style="font-size: 12px; color: var(--text-muted); position: absolute; top: 10px;">English</span>
+                        <span id="vocab-en">Word</span>
+                    </div>
+                    <div class="card-face card-back">
+                        <span style="font-size: 12px; color: #e0e0e0; position: absolute; top: 10px;">German</span>
+                        <span id="vocab-de">Wort</span>
+                        <span id="vocab-pl" class="plural-text">die Wörter</span>
+                    </div>
+                </div>
+            </div>
+            <div id="vocab-input-area" style="width:100%;">
+                <input type="text" id="vocab-input" class="custom-input" placeholder="Type German singular..." onkeypress="if(event.key==='Enter') checkAnswer()">
+                <button class="check-btn" onclick="checkAnswer()">Check</button>
+            </div>
+        </div>
+
+        <!-- MODE 2: Verbs (3 Inputs) -->
+        <div id="mode-verbs" class="practice-wrapper">
+            <div class="sentence-box">
+                <span style="font-size: 12px; color: var(--text-muted); display: block;">Verb to conjugate:</span>
+                <span id="verb-en" style="font-size: 24px;">To go</span>
+                <span id="verb-inf" style="display:block; color: #007BFF; font-size: 16px; margin-top: 5px;">(gehen)</span>
+            </div>
+            <div id="verb-input-area" style="width:100%;">
+                <input type="text" id="verb-pres" class="custom-input" placeholder="Present (Präsens)">
+                <input type="text" id="verb-past" class="custom-input" placeholder="Past (Präteritum/Perfekt)">
+                <input type="text" id="verb-fut" class="custom-input" placeholder="Future (wird...)">
+                <button class="check-btn" onclick="checkAnswer()">Check All</button>
+            </div>
+            <div id="verb-answers" class="sentence-box" style="display:none; background: #28a745; color: white; border:none;"></div>
+        </div>
+
+        <!-- MODE 3: Fill in the Blanks -->
+        <div id="mode-fillblanks" class="practice-wrapper">
+            <div class="sentence-box" style="font-size: 16px; color: var(--text-muted);" id="fill-en">English Context</div>
+            <div class="sentence-box" id="fill-de" style="font-size: 22px;">German ___ sentence.</div>
+            <div id="fill-input-area" style="width:100%;">
+                <input type="text" id="fill-input" class="custom-input" placeholder="Type the missing word..." onkeypress="if(event.key==='Enter') checkAnswer()">
+                <button class="check-btn" onclick="checkAnswer()">Check</button>
+            </div>
+            <div id="fill-answers" class="sentence-box" style="display:none; background: #28a745; color: white; border:none;"></div>
+        </div>
+
+        <!-- MODE 4: Sentences -->
+        <div id="mode-sentences" class="practice-wrapper">
+            <div class="sentence-box" id="sent-en">English Sentence</div>
+            <div id="sent-input-area" style="width:100%;">
+                <textarea id="sent-input" class="custom-input" placeholder="Translate entire sentence to German..."></textarea>
+                <button class="check-btn" onclick="checkAnswer()">Check / Reveal</button>
+            </div>
+            <div id="sent-answers" class="sentence-box" style="display:none; background: #28a745; color: white; border:none;"></div>
+        </div>
+
+        <!-- MODE 5: Grammar Tables -->
+        <div id="mode-grammar" class="practice-wrapper" style="max-width: 100%; overflow-x: auto;">
+            <table class="grammar-table" id="grammar-grid"></table>
+            <!-- Grammar mode skips normal check logic -->
+        </div>
+
+        <!-- Shared Tools & Tagging -->
+        <div class="card-tools" id="shared-tools">
+            <button class="tool-btn" onclick="showHint()">💡 Hint</button>
+            <button class="tool-btn" onclick="speakGerman()">🔊 Listen</button>
+        </div>
+        <div id="hint-text" style="font-size: 16px; color: #007BFF; font-weight: bold; margin-bottom: 15px; text-align: center; display: none;"></div>
+        
+        <div id="controls">
+            <div class="categories" id="category-container"></div>
+            <button class="save-btn" onclick="nextCard()">Save & Next</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. FIREBASE CONFIGURATION (YOUR KEYS)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCJMDK0OP-Lw6Bvhj8RaBZjqvpgWndTAao",
+            authDomain: "german-flashcards-5e519.firebaseapp.com",
+            projectId: "german-flashcards-5e519",
+            storageBucket: "german-flashcards-5e519.firebasestorage.app",
+            messagingSenderId: "412566872637",
+            appId: "1:412566872637:web:4c1e754db9ebbab9ff0054"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ==========================================
+        // 2. STATE VARIABLES
+        // ==========================================
+        let appData = {}; 
+        let _headers = {}; // Stores Excel Headers
+        
+        // Navigation State
+        let navState = { section: null, level: null };
+        
+        // Practice State
+        let practiceQueue = [];
+        let currentIndex = 0;
+        let selectedTags = new Set();
+        let selectedTableForModal = "";
+        let currentMode = ""; // e.g. "Vocabulary"
+
+        // Tag Definitions by Section
+        const tagMaps = {
+            "Vocabulary": ["Easy", "Medium", "Difficult", "Not so important", "Wrong Article", "Wrong Spell"],
+            "Verbs": ["Easy", "Medium", "Difficult", "Not so important", "Wrong Spell"],
+            "FillBlanks": ["Easy", "Medium", "Difficult", "Wrong Spell"],
+            "Sentences": ["Easy", "Medium", "Difficult", "Grammar Mistake", "Wrong Spell"],
+            "Grammar": ["Review Entire Table", "Mastered"]
+        };
+        
+        // Profiles & Theme
+        let knownProfiles = JSON.parse(localStorage.getItem("knownProfiles")) || ["main"];
+        let currentProfile = localStorage.getItem("vocabProfile") || "main";
+        
+        if (localStorage.getItem("theme") === "dark") document.body.setAttribute("data-theme", "dark");
+
+        // ==========================================
+        // 3. INITIALIZATION
+        // ==========================================
+        window.onload = function() {
+            renderProfileDropdown();
+            loadCloudData();
+        };
+
+        function toggleDarkMode() {
+            const isDark = document.body.getAttribute("data-theme") === "dark";
+            if (isDark) {
+                document.body.removeAttribute("data-theme");
+                localStorage.setItem("theme", "light");
+            } else {
+                document.body.setAttribute("data-theme", "dark");
+                localStorage.setItem("theme", "dark");
+            }
+        }
+
+        // --- PROFILE LOGIC ---
+        function renderProfileDropdown() {
+            const select = document.getElementById("profile-select");
+            select.innerHTML = "";
+            knownProfiles.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p; opt.innerText = p;
+                select.appendChild(opt);
+            });
+            select.value = currentProfile;
+        }
+
+        function createNewProfile() {
+            const newName = prompt("Enter Username:");
+            if (!newName || newName.trim() === "") return;
+            const cleanName = newName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (!knownProfiles.includes(cleanName)) {
+                knownProfiles.push(cleanName);
+                localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles));
+            }
+            currentProfile = cleanName;
+            localStorage.setItem("vocabProfile", currentProfile);
+            renderProfileDropdown();
+            appData = {}; _headers = {};
+            loadCloudData(); 
+            goBack(); // Reset view
+        }
+
+        function switchProfile() {
+            currentProfile = document.getElementById("profile-select").value;
+            localStorage.setItem("vocabProfile", currentProfile);
+            appData = {}; _headers = {};
+            loadCloudData();
+            goBack();
+        }
+
+        async function triggerDeleteData() {
+            const action = prompt(`DANGER ZONE:\nType 'HISTORY' to erase all progress.\nType 'DELETE' to permanently delete user '${currentProfile}'.`);
+            if (!action) return;
+            if (action.toUpperCase() === 'HISTORY') {
+                if (prompt("Type username to confirm:") === currentProfile) wipeProfileHistory();
+            } else if (action.toUpperCase() === 'DELETE') {
+                if (knownProfiles.length === 1) return alert("Cannot delete only profile.");
+                if (prompt("Type username to confirm:") === currentProfile) deleteProfileComplete();
+            }
+        }
+
+        function wipeProfileHistory() {
+            for (const table in appData) {
+                if (table === '_tableOrder') continue;
+                appData[table].forEach(w => { w.categories = []; w.lastPracticed = ""; w.comment = ""; });
+            }
+            saveData(); alert("History wiped.");
+        }
+
+        async function deleteProfileComplete() {
+            await db.collection("vocabAppV6").doc("data_" + currentProfile).delete();
+            knownProfiles = knownProfiles.filter(p => p !== currentProfile);
+            localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles));
+            currentProfile = knownProfiles[0];
+            localStorage.setItem("vocabProfile", currentProfile);
+            renderProfileDropdown(); loadCloudData(); goBack();
+        }
+
+        // --- CLOUD LOGIC ---
+        async function loadCloudData() {
+            const syncLabel = document.getElementById("sync-status");
+            syncLabel.style.display = "block"; syncLabel.innerText = "Loading data...";
+            try {
+                const doc = await db.collection("vocabAppV6").doc("data_" + currentProfile).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    appData = data.tables || {};
+                    _headers = data.headers || {};
+                    syncLabel.innerText = "✅ Synced"; syncLabel.style.backgroundColor = "#28a745";
+                } else {
+                    appData = {}; _headers = {};
+                    syncLabel.innerText = "No Data. Please Sync Excel Data."; syncLabel.style.backgroundColor = "#e74c3c";
+                }
+            } catch (error) {
+                console.error(error); syncLabel.innerText = "❌ Cloud Error."; syncLabel.style.backgroundColor = "#e74c3c";
+            }
+            setTimeout(() => { syncLabel.style.display = "none"; }, 3000);
+        }
+
+        function saveData() {
+            db.collection("vocabAppV6").doc("data_" + currentProfile).set({ tables: appData, headers: _headers })
+              .catch(err => console.error("Save Failed", err));
+        }
+
+        // ==========================================
+        // 4. DYNAMIC EXCEL PARSER (V6 CORE)
+        // ==========================================
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const indexSheet = workbook.Sheets["Table_Index"];
+                if (!indexSheet) return alert("Missing 'Table_Index' sheet. Run your VBA macro!");
+                
+                const indexData = XLSX.utils.sheet_to_json(indexSheet, {header: 1});
+                let newTableOrder = [];
+
+                for (let i = 1; i < indexData.length; i++) {
+                    if (indexData[i].length >= 3) {
+                        const sheetName = indexData[i][0];
+                        const tableName = indexData[i][1]; // e.g. Vocabulary_A1_Food
+                        const tableRange = indexData[i][2];
+
+                        if (!newTableOrder.includes(tableName)) newTableOrder.push(tableName);
+
+                        const sheet = workbook.Sheets[sheetName];
+                        const rawData = XLSX.utils.sheet_to_json(sheet, {range: tableRange, header: 1});
+                        
+                        if (!appData[tableName]) appData[tableName] = [];
+                        if (rawData.length > 0) _headers[tableName] = rawData[0]; // Save headers
+
+                        for (let r = 1; r < rawData.length; r++) {
+                            const rowArray = rawData[r];
+                            if (rowArray && rowArray.length > 0 && rowArray[0]) {
+                                // Match based on Column A (English/Prompt)
+                                const exists = appData[tableName].find(w => w.rowData[0] === rowArray[0]);
+                                if (!exists) {
+                                    appData[tableName].push({ rowData: rowArray, categories: [], comment: "", lastPracticed: "" });
+                                } else {
+                                    // Update text data but keep progress
+                                    exists.rowData = rowArray;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                appData._tableOrder = newTableOrder;
+                saveData();
+                alert("Excel synced successfully! Dynamic tables built.");
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ==========================================
+        // 5. NAVIGATION (CATEGORY -> LEVEL -> TABLE)
+        // ==========================================
+        function goBack() {
+            if (navState.level) { navState.level = null; openLevelSelection(navState.section); }
+            else { navState.section = null; document.getElementById("view-levels").style.display = "none"; document.getElementById("view-tables").style.display = "none"; document.getElementById("view-hubs").style.display = "grid"; document.getElementById("breadcrumb").style.display = "none"; }
+        }
+
+        function getAvailableLevels(sectionFilter) {
+            let levels = new Set();
+            for (const table in appData) {
+                if (table === '_tableOrder') continue;
+                const parts = table.split('_');
+                if (parts[0] === sectionFilter && parts[1]) levels.add(parts[1]);
+            }
+            return Array.from(levels).sort();
+        }
+
+        function openLevelSelection(section) {
+            navState.section = section;
+            document.getElementById("view-hubs").style.display = "none";
+            document.getElementById("view-tables").style.display = "none";
+            
+            const levelGrid = document.getElementById("view-levels");
+            levelGrid.innerHTML = "";
+            levelGrid.style.display = "grid";
+            
+            document.getElementById("breadcrumb").style.display = "block";
+            document.getElementById("breadcrumb").innerText = `← Hubs / ${section}`;
+
+            const levels = getAvailableLevels(section);
+            if (levels.length === 0) {
+                levelGrid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:20px;">No tables found for ${section}. Upload data!</div>`;
+                return;
+            }
+
+            levels.forEach(lvl => {
+                const card = document.createElement("div");
+                card.className = "hub-card";
+                card.innerHTML = `<div class="hub-icon">🎓</div><div class="hub-title">Level ${lvl}</div>`;
+                card.onclick = () => openTableSelection(section, lvl);
+                levelGrid.appendChild(card);
+            });
+        }
+
+        function openTableSelection(section, level) {
+            navState.level = level;
+            document.getElementById("view-levels").style.display = "none";
+            
+            const tableGrid = document.getElementById("view-tables");
+            tableGrid.innerHTML = "";
+            tableGrid.style.display = "grid";
+            
+            document.getElementById("breadcrumb").innerText = `← Hubs / ${section} / ${level}`;
+
+            const order = appData._tableOrder || Object.keys(appData).filter(k => k !== '_tableOrder');
+            order.forEach(tableName => {
+                if (tableName === '_tableOrder') return;
+                const parts = tableName.split('_');
+                if (parts[0] === section && parts[1] === level) {
+                    const words = appData[tableName];
+                    const practiced = words.filter(w => w.categories.length > 0).length;
+                    const displayName = parts.slice(2).join(" "); // Joins remaining parts
+                    
+                    const card = document.createElement("div");
+                    card.className = "table-card";
+                    card.onclick = () => openModal(tableName, section);
+                    card.innerHTML = `<h3>${displayName}</h3><p>${practiced} / ${words.length} items</p>`;
+                    tableGrid.appendChild(card);
+                }
+            });
+        }
+
+        // ==========================================
+        // 6. PRACTICE INITIALIZATION
+        // ==========================================
+        function openModal(tableName, section) {
+            selectedTableForModal = tableName;
+            currentMode = section;
+            const words = appData[tableName];
+            const practiced = words.filter(w => w.categories.length > 0).length;
+            document.getElementById("modal-title").innerText = tableName.split('_').slice(2).join(" ");
+            document.getElementById("modal-stats").innerText = `${practiced} / ${words.length} done`;
+            document.getElementById("practice-modal").style.display = "flex";
+        }
+        function closeModal() { document.getElementById("practice-modal").style.display = "none"; }
+
+        function initPractice(mode) {
+            closeModal();
+            practiceQueue = [];
+            const tableData = appData[selectedTableForModal];
+
+            // Grammar mode handles the WHOLE table at once, not item by item
+            if (currentMode === "Grammar") {
+                practiceQueue.push({tableName: selectedTableForModal, index: 0, data: { isGrammarBlock: true }});
+            } else {
+                if (mode === 'fresh') tableData.forEach((w, i) => practiceQueue.push({tableName: selectedTableForModal, index: i, data: w}));
+                else if (mode === 'resume') {
+                    let startIdx = tableData.findIndex(w => w.categories.length === 0);
+                    if (startIdx === -1) startIdx = 0;
+                    for(let i = startIdx; i < tableData.length; i++) practiceQueue.push({tableName: selectedTableForModal, index: i, data: tableData[i]});
+                }
+            }
+            if (practiceQueue.length === 0) return alert("No items match.");
+            startUI();
+        }
+
+        function startUI() {
+            document.getElementById("main-view").style.display = "none";
+            document.getElementById("practice-area").style.display = "flex";
+            
+            // Hide all wrappers
+            document.querySelectorAll(".practice-wrapper").forEach(w => w.style.display = "none");
+            
+            // Determine Wrapper Map
+            const wrapperMap = { "Vocabulary": "mode-vocab", "Verbs": "mode-verbs", "FillBlanks": "mode-fillblanks", "Sentences": "mode-sentences", "Grammar": "mode-grammar" };
+            document.getElementById(wrapperMap[currentMode]).style.display = "flex";
+
+            renderCategoryButtons();
+            currentIndex = 0;
+            loadCard();
+        }
+
+        function loadCard() {
+            if (currentIndex >= practiceQueue.length) { alert("Session Complete!"); exitPractice(); return; }
+            const obj = practiceQueue[currentIndex];
+            
+            document.getElementById("progress-text").innerText = `${obj.tableName.split('_').slice(2).join(" ")} - ${currentIndex + 1} of ${practiceQueue.length}`;
+            
+            // Reset Shared UI
+            document.getElementById("controls").style.display = "none";
+            document.getElementById("spell-result").innerText = "";
+            document.getElementById("hint-text").style.display = "none";
+            document.getElementById("shared-tools").style.display = (currentMode === "Grammar") ? "none" : "flex";
+
+            // Determine Tag Selection
+            selectedTags = new Set(obj.data.categories || []);
+            document.querySelectorAll(".cat-btn").forEach(btn => {
+                if (selectedTags.has(btn.innerText)) btn.classList.add("selected"); else btn.classList.remove("selected");
+            });
+
+            const row = obj.data.rowData;
+
+            // --- UI ROUTING ---
+            if (currentMode === "Vocabulary") {
+                document.getElementById("vocab-card").classList.remove("flipped");
+                document.getElementById("vocab-input-area").style.display = "block";
+                document.getElementById("vocab-input").value = "";
+                document.getElementById("vocab-en").innerText = row[0] || "";
+                document.getElementById("vocab-de").innerText = row[1] || "";
+                document.getElementById("vocab-pl").innerText = row[2] ? `(${row[2]})` : "";
+                document.getElementById("vocab-input").focus();
+            } 
+            else if (currentMode === "Verbs") {
+                document.getElementById("verb-input-area").style.display = "block";
+                document.getElementById("verb-answers").style.display = "none";
+                document.getElementById("verb-en").innerText = row[0] || "";
+                document.getElementById("verb-inf").innerText = row[1] ? `(${row[1]})` : "";
+                document.getElementById("verb-pres").value = ""; document.getElementById("verb-past").value = ""; document.getElementById("verb-fut").value = "";
+                document.getElementById("verb-pres").focus();
+            }
+            else if (currentMode === "FillBlanks") {
+                document.getElementById("fill-input-area").style.display = "block";
+                document.getElementById("fill-answers").style.display = "none";
+                document.getElementById("fill-en").innerText = row[0] || "";
+                document.getElementById("fill-de").innerHTML = (row[1] || "").replace("___", "<strong>___</strong>");
+                document.getElementById("fill-input").value = "";
+                document.getElementById("fill-input").focus();
+            }
+            else if (currentMode === "Sentences") {
+                document.getElementById("sent-input-area").style.display = "block";
+                document.getElementById("sent-answers").style.display = "none";
+                document.getElementById("sent-en").innerText = row[0] || "";
+                document.getElementById("sent-input").value = "";
+                document.getElementById("sent-input").focus();
+            }
+            else if (currentMode === "Grammar") {
+                buildGrammarGrid(obj.tableName);
+                document.getElementById("controls").style.display = "flex"; // Show Save buttons immediately
+                document.getElementById("progress-text").innerText = `${obj.tableName.split('_').slice(2).join(" ")} - Full Grid`;
+            }
+        }
+
+        // ==========================================
+        // 7. CHECKING & REVEAL LOGIC
+        // ==========================================
+        function checkAnswer() {
+            const obj = practiceQueue[currentIndex];
+            const row = obj.data.rowData;
+            const resBox = document.getElementById("spell-result");
+            let isCorrect = false;
+
+            if (currentMode === "Vocabulary") {
+                const input = document.getElementById("vocab-input").value.trim().toLowerCase();
+                if(!input) return;
+                isCorrect = (input === (row[1]||"").trim().toLowerCase());
+                document.getElementById("vocab-input-area").style.display = "none";
+                document.getElementById("vocab-card").classList.add("flipped");
+            }
+            else if (currentMode === "Verbs") {
+                const iPres = document.getElementById("verb-pres").value.trim().toLowerCase();
+                const iPast = document.getElementById("verb-past").value.trim().toLowerCase();
+                const iFut = document.getElementById("verb-fut").value.trim().toLowerCase();
+                
+                const tPres = (row[2]||"").trim().toLowerCase();
+                const tPast = (row[3]||"").trim().toLowerCase();
+                const tFut = (row[4]||"").trim().toLowerCase();
+
+                isCorrect = (iPres===tPres && iPast===tPast && iFut===tFut);
+                document.getElementById("verb-input-area").style.display = "none";
+                document.getElementById("verb-answers").innerHTML = `Präsens: <b>${row[2]||"-"}</b><br>Past: <b>${row[3]||"-"}</b><br>Future: <b>${row[4]||"-"}</b>`;
+                document.getElementById("verb-answers").style.display = "block";
+            }
+            else if (currentMode === "FillBlanks") {
+                const input = document.getElementById("fill-input").value.trim().toLowerCase();
+                if(!input) return;
+                isCorrect = (input === (row[2]||"").trim().toLowerCase());
+                document.getElementById("fill-input-area").style.display = "none";
+                document.getElementById("fill-answers").innerHTML = `Answer: <b>${row[2]}</b><br><small>${row[1].replace("___", `<u>${row[2]}</u>`)}</small>`;
+                document.getElementById("fill-answers").style.display = "block";
+            }
+            else if (currentMode === "Sentences") {
+                const input = document.getElementById("sent-input").value.trim().toLowerCase();
+                const target = (row[1]||"").trim().toLowerCase();
+                // Strip punctuation for fuzzy compare
+                const cleanI = input.replace(/[.,!?]/g,""); const cleanT = target.replace(/[.,!?]/g,"");
+                isCorrect = (cleanI === cleanT);
+                document.getElementById("sent-input-area").style.display = "none";
+                document.getElementById("sent-answers").innerText = row[1];
+                document.getElementById("sent-answers").style.display = "block";
+            }
+
+            if(isCorrect) { resBox.innerText = "✅ Correct!"; resBox.style.color = "#28a745"; }
+            else { resBox.innerText = "❌ Keep Studying!"; resBox.style.color = "#dc3545"; }
+            
+            document.getElementById("controls").style.display = "flex";
+            document.getElementById("shared-tools").style.display = "none";
+            speakGermanLogic(row);
+        }
+
+        // ==========================================
+        // 8. CUSTOM UI RENDERERS
+        // ==========================================
+        function buildGrammarGrid(tableName) {
+            const tableData = appData[tableName];
+            const headers = _headers[tableName] || [];
+            const grid = document.getElementById("grammar-grid");
+            grid.innerHTML = "";
+
+            // Render Header
+            let trH = document.createElement("tr");
+            headers.forEach(h => { let th = document.createElement("th"); th.innerText = h||""; trH.appendChild(th); });
+            grid.appendChild(trH);
+
+            // Render Rows (Column 0 visible, rest hidden)
+            tableData.forEach(obj => {
+                let tr = document.createElement("tr");
+                let rowData = obj.rowData;
+                for(let c=0; c<headers.length; c++) {
+                    let td = document.createElement("td");
+                    td.innerText = rowData[c] || "";
+                    if (c > 0 && rowData[c]) {
+                        td.className = "hidden-cell";
+                        td.onclick = function() { this.classList.add("revealed"); }
+                    }
+                    tr.appendChild(td);
+                }
+                grid.appendChild(tr);
+            });
+        }
+
+        function flipVocabCard() {
+            // Manual flip logic if user clicks card instead of typing
+            if(document.getElementById("vocab-input-area").style.display !== "none") {
+                document.getElementById("vocab-input-area").style.display = "none";
+                document.getElementById("vocab-card").classList.add("flipped");
+                document.getElementById("controls").style.display = "flex";
+                document.getElementById("shared-tools").style.display = "none";
+                speakGermanLogic(practiceQueue[currentIndex].data.rowData);
+            }
+        }
+
+        // ==========================================
+        // 9. TOOLS & SAVING
+        // ==========================================
+        function showHint() {
+            const row = practiceQueue[currentIndex].data.rowData;
+            let target = "";
+            if (currentMode === "Vocabulary") target = row[1];
+            else if (currentMode === "Verbs") target = row[2]; // Hint present
+            else if (currentMode === "FillBlanks") target = row[2];
+            else if (currentMode === "Sentences") target = row[1];
+            
+            if(!target) return;
+            const words = target.split(' ');
+            let hint = words.length >= 3 ? words.sort(()=>Math.random()-0.5).join(' ') : words.map(w => w.length<=2 ? w : w[0]+'-'.repeat(w.length-2)+w[w.length-1]).join(' ');
+            
+            document.getElementById("hint-text").innerText = hint;
+            document.getElementById("hint-text").style.display = "block";
+        }
+
+        function speakGerman() { speakGermanLogic(practiceQueue[currentIndex].data.rowData); }
+        
+        function speakGermanLogic(row) {
+            let target = "";
+            if (currentMode === "Vocabulary") target = row[1];
+            else if (currentMode === "Verbs") target = row[1] + " " + row[2];
+            else if (currentMode === "FillBlanks") target = row[1].replace("___", row[2]||"");
+            else if (currentMode === "Sentences") target = row[1];
+            if(target) { const u = new SpeechSynthesisUtterance(target); u.lang = 'de-DE'; window.speechSynthesis.speak(u); }
+        }
+
+        function renderCategoryButtons() {
+            const container = document.getElementById("category-container");
+            container.innerHTML = "";
+            const tags = tagMaps[currentMode] || tagMaps["Vocabulary"];
+            
+            tags.forEach(cat => {
+                const btn = document.createElement("button");
+                btn.className = "cat-btn"; btn.innerText = cat;
+                btn.onclick = () => {
+                    if (selectedTags.has(cat)) { selectedTags.delete(cat); btn.classList.remove("selected"); }
+                    else { selectedTags.add(cat); btn.classList.add("selected"); }
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function nextCard() {
+            const obj = practiceQueue[currentIndex];
+            const today = new Date().toISOString().split('T')[0];
+            
+            if (currentMode === "Grammar") {
+                // Apply tag to entire table
+                appData[obj.tableName].forEach(w => {
+                    w.categories = Array.from(selectedTags); w.lastPracticed = today;
+                });
+            } else {
+                appData[obj.tableName][obj.index].categories = Array.from(selectedTags);
+                appData[obj.tableName][obj.index].lastPracticed = today;
+            }
+            
+            saveData(); 
+            currentIndex++;
+            loadCard();
+        }
+
+        function exitPractice() {
+            document.getElementById("practice-area").style.display = "none";
+            document.getElementById("main-view").style.display = "flex";
+            // Re-render current dashboard view
+            if(navState.level) openTableSelection(navState.section, navState.level);
+            else if (navState.section) openLevelSelection(navState.section);
+        }
+    </script>
+</body>
+</html>
