@@ -8,7 +8,7 @@
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
 
-    <title>German Flashcards LMS V6</title>
+    <title>German Flashcards LMS V6.2</title>
     
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -37,10 +37,9 @@
 
         #sync-status { text-align: center; font-size: 14px; font-weight: bold; color: white; background-color: #f39c12; padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; }
 
-        /* Navigation Breadcrumbs */
         .breadcrumb { font-size: 14px; margin-bottom: 15px; color: #007BFF; cursor: pointer; font-weight: bold; }
 
-        /* The 5 Main Hubs & Grids */
+        /* Hubs */
         .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; }
         .hub-card { background: var(--bg-color); border: 2px solid var(--border-color); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
         .hub-card:hover { transform: translateY(-3px); border-color: #007BFF; background: var(--hub-hover); }
@@ -50,30 +49,38 @@
         .table-card { background: var(--bg-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; cursor: pointer; text-align: center; }
         .table-card:hover { border-color: #007BFF; }
 
-        /* Practice Area Shared */
+        /* Practice Area */
         #practice-area { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; }
         .practice-wrapper { width: 100%; display: none; flex-direction: column; align-items: center; }
         
-        /* Modals & Inputs */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-overlay); display: none; justify-content: center; align-items: center; z-index: 1000; }
         .modal { background: var(--card-bg); padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; text-align: center; }
         
         .custom-input { width: 100%; padding: 12px; background: var(--bg-color); color: var(--text-main); border: 2px solid var(--border-color); border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px; }
         .check-btn { padding: 12px 20px; background: #333; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 15px;}
         .card-tools { display: flex; gap: 10px; margin-bottom: 15px; width: 100%; justify-content: center;}
-        .tool-btn { background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .tool-btn { background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .tool-btn:hover { background: var(--border-color); }
         
-        /* Flashcard (Vocab) */
+        /* Flashcards */
         .card-container { width: 100%; height: 220px; perspective: 1000px; margin-bottom: 15px; cursor: pointer;}
         .card { width: 100%; height: 100%; position: relative; transition: transform 0.6s; transform-style: preserve-3d; }
         .card.flipped { transform: rotateY(180deg); }
-        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; padding: 20px; box-sizing: border-box; border: 1px solid var(--border-color); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; padding: 20px; box-sizing: border-box; border: 1px solid var(--border-color); font-size: 26px; font-weight: bold; }
         .card-front { background-color: var(--card-bg); color: var(--text-main); }
         .card-back { background-color: #28a745; color: #fff; transform: rotateY(180deg); }
-        .plural-text { font-size: 14px; font-style: italic; opacity: 0.8; margin-top: 10px; }
+        .small-lbl { font-size: 12px; color: var(--text-muted); position: absolute; top: 10px; font-weight: normal; }
+        .card-back .small-lbl { color: #e0e0e0; }
 
-        /* Sentences */
+        /* Verb Sub-Cards */
+        .sub-cards-row { display: flex; gap: 10px; width: 100%; margin-bottom: 15px; }
+        .sub-card-container { flex: 1; height: 120px; perspective: 1000px; cursor: pointer; }
+        .sub-card-container .card-face { font-size: 16px; padding: 10px; }
+
+        /* Text Boxes & Jumble */
         .sentence-box { background: var(--bg-color); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 15px; width: 100%; text-align: center; font-size: 18px; font-weight: bold; box-sizing: border-box;}
+        .jumble-area { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 15px; width: 100%; }
+        #sent-answer-box { min-height: 60px; cursor: pointer; border: 2px dashed var(--border-color); background: var(--card-bg); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 5px; padding: 10px; }
         textarea.custom-input { resize: vertical; min-height: 80px; }
 
         /* Grammar Grid */
@@ -83,7 +90,6 @@
         .hidden-cell { background: #34495e; color: #34495e; cursor: pointer; transition: background 0.3s, color 0.3s; border-radius: 4px; }
         .hidden-cell.revealed { background: transparent; color: var(--text-main); cursor: default; }
 
-        /* Controls & Categories */
         #controls { display: none; width: 100%; flex-direction: column; gap: 15px; }
         .categories { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
         .cat-btn { background: transparent; color: var(--text-main); border: 2px solid var(--border-color); padding: 8px 12px; font-size: 13px; border-radius: 5px; cursor: pointer; }
@@ -97,7 +103,6 @@
     <div class="container" id="main-view">
         <div id="sync-status">Connecting to Cloud...</div>
         
-        <!-- Top Toolbar -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 14px;">
             <div style="display: flex; align-items: center; gap: 5px;">
                 Profile: 
@@ -106,7 +111,7 @@
                 <button class="icon-btn" onclick="triggerDeleteData()" style="font-size: 16px; padding: 5px; border-radius: 5px; background: #ffebee; border: 1px solid #ffcdd2; color: #d32f2f;">🗑️</button>
             </div>
             <div>
-                <button class="tool-btn" onclick="toggleDarkMode()">🌙 Theme</button>
+                <button class="tool-btn" onclick="toggleDarkMode()" style="box-shadow: none;">🌙 Theme</button>
             </div>
         </div>
 
@@ -116,22 +121,19 @@
             <input type="file" id="hidden-upload" accept=".xlsx, .xls" style="display:none;" onchange="handleFileUpload(event)" />
         </div>
 
-        <!-- Breadcrumb Navigation -->
         <div id="breadcrumb" class="breadcrumb" style="display: none;" onclick="goBack()">← Back to Hubs</div>
 
-        <!-- STAGE 1: The 5 Hubs -->
+        <!-- STAGE 1: 6 Hubs -->
         <div id="view-hubs" class="hub-grid">
             <div class="hub-card" onclick="openLevelSelection('Vocabulary')"><div class="hub-icon">📚</div><div class="hub-title">Vocabulary</div></div>
             <div class="hub-card" onclick="openLevelSelection('Verbs')"><div class="hub-icon">🏃‍♂️</div><div class="hub-title">Verbs</div></div>
             <div class="hub-card" onclick="openLevelSelection('FillBlanks')"><div class="hub-icon">🧩</div><div class="hub-title">Fill in Blanks</div></div>
             <div class="hub-card" onclick="openLevelSelection('Sentences')"><div class="hub-icon">💬</div><div class="hub-title">Sentences</div></div>
+            <div class="hub-card" onclick="openLevelSelection('Jumble')"><div class="hub-icon">🔀</div><div class="hub-title">Jumble</div></div>
             <div class="hub-card" onclick="openLevelSelection('Grammar')"><div class="hub-icon">📊</div><div class="hub-title">Grammar Tables</div></div>
         </div>
 
-        <!-- STAGE 2: Level Selection (A1, A2, etc) -->
         <div id="view-levels" class="hub-grid" style="display: none;"></div>
-
-        <!-- STAGE 3: Table Selection -->
         <div id="view-tables" class="table-grid" style="display: none;"></div>
     </div>
 
@@ -155,18 +157,18 @@
         
         <div id="spell-result"></div>
 
-        <!-- MODE 1: Vocabulary (Flashcard) -->
+        <!-- MODE 1: Vocabulary -->
         <div id="mode-vocab" class="practice-wrapper">
             <div class="card-container" onclick="flipVocabCard()">
                 <div class="card" id="vocab-card">
                     <div class="card-face card-front">
-                        <span style="font-size: 12px; color: var(--text-muted); position: absolute; top: 10px;">English</span>
+                        <span class="small-lbl">English</span>
                         <span id="vocab-en">Word</span>
                     </div>
                     <div class="card-face card-back">
-                        <span style="font-size: 12px; color: #e0e0e0; position: absolute; top: 10px;">German</span>
+                        <span class="small-lbl">German</span>
                         <span id="vocab-de">Wort</span>
-                        <span id="vocab-pl" class="plural-text">die Wörter</span>
+                        <span id="vocab-pl" style="font-size: 14px; font-weight: normal; margin-top: 10px;">die Wörter</span>
                     </div>
                 </div>
             </div>
@@ -176,26 +178,51 @@
             </div>
         </div>
 
-        <!-- MODE 2: Verbs (3 Inputs) -->
+        <!-- MODE 2: Verbs (Interactive Flashcards) -->
         <div id="mode-verbs" class="practice-wrapper">
-            <div class="sentence-box">
-                <span style="font-size: 12px; color: var(--text-muted); display: block;">Verb to conjugate:</span>
-                <span id="verb-en" style="font-size: 24px;">To go</span>
-                <span id="verb-inf" style="display:block; color: #007BFF; font-size: 16px; margin-top: 5px;">(gehen)</span>
+            <!-- Main Verb Card -->
+            <div class="card-container" onclick="flipVerbCard('main')" style="height: 160px;">
+                <div class="card" id="verb-card-main">
+                    <div class="card-face card-front">
+                        <span class="small-lbl">English Verb</span>
+                        <span id="v-en-main"></span>
+                    </div>
+                    <div class="card-face card-back" style="background-color: #007BFF;">
+                        <span class="small-lbl">Infinitive</span>
+                        <span id="v-de-main"></span>
+                    </div>
+                </div>
             </div>
-            <div id="verb-input-area" style="width:100%;">
-                <input type="text" id="verb-pres" class="custom-input" placeholder="Present (Präsens)">
-                <input type="text" id="verb-past" class="custom-input" placeholder="Past (Präteritum/Perfekt)">
-                <input type="text" id="verb-fut" class="custom-input" placeholder="Future (wird...)">
-                <button class="check-btn" onclick="checkAnswer()">Check All</button>
+            
+            <!-- Sub Tense Cards -->
+            <div class="sub-cards-row">
+                <div class="sub-card-container" onclick="flipVerbCard('pres')">
+                    <div class="card" id="verb-card-pres">
+                        <div class="card-face card-front">Present</div>
+                        <div class="card-face card-back" id="v-de-pres"></div>
+                    </div>
+                </div>
+                <div class="sub-card-container" onclick="flipVerbCard('past')">
+                    <div class="card" id="verb-card-past">
+                        <div class="card-face card-front">Past</div>
+                        <div class="card-face card-back" id="v-de-past"></div>
+                    </div>
+                </div>
+                <div class="sub-card-container" onclick="flipVerbCard('fut')">
+                    <div class="card" id="verb-card-fut">
+                        <div class="card-face card-front">Future</div>
+                        <div class="card-face card-back" id="v-de-fut"></div>
+                    </div>
+                </div>
             </div>
-            <div id="verb-answers" class="sentence-box" style="display:none; background: #28a745; color: white; border:none;"></div>
+            
+            <button class="check-btn" id="verb-reveal-btn" onclick="revealAllVerbs()">Reveal All Cards & Grade</button>
         </div>
 
         <!-- MODE 3: Fill in the Blanks -->
         <div id="mode-fillblanks" class="practice-wrapper">
-            <div class="sentence-box" style="font-size: 16px; color: var(--text-muted);" id="fill-en">English Context</div>
-            <div class="sentence-box" id="fill-de" style="font-size: 22px;">German ___ sentence.</div>
+            <div class="sentence-box" style="font-size: 16px; color: var(--text-muted);" id="fill-en"></div>
+            <div class="sentence-box" id="fill-de" style="font-size: 22px;"></div>
             <div id="fill-input-area" style="width:100%;">
                 <input type="text" id="fill-input" class="custom-input" placeholder="Type the missing word..." onkeypress="if(event.key==='Enter') checkAnswer()">
                 <button class="check-btn" onclick="checkAnswer()">Check</button>
@@ -203,23 +230,34 @@
             <div id="fill-answers" class="sentence-box" style="display:none; background: #28a745; color: white; border:none;"></div>
         </div>
 
-        <!-- MODE 4: Sentences -->
+        <!-- MODE 4: Sentences (Pure Typing) -->
         <div id="mode-sentences" class="practice-wrapper">
-            <div class="sentence-box" id="sent-en">English Sentence</div>
+            <div class="sentence-box" id="sent-en"></div>
             <div id="sent-input-area" style="width:100%;">
                 <textarea id="sent-input" class="custom-input" placeholder="Translate entire sentence to German..."></textarea>
-                <button class="check-btn" onclick="checkAnswer()">Check / Reveal</button>
+                <button class="check-btn" onclick="checkAnswer()">Check Sentence</button>
             </div>
             <div id="sent-answers" class="sentence-box" style="display:none; background: #28a745; color: white; border:none;"></div>
         </div>
 
-        <!-- MODE 5: Grammar Tables -->
-        <div id="mode-grammar" class="practice-wrapper" style="max-width: 100%; overflow-x: auto;">
-            <table class="grammar-table" id="grammar-grid"></table>
-            <!-- Grammar mode skips normal check logic -->
+        <!-- MODE 5: Jumble (Move blocks) -->
+        <div id="mode-jumble" class="practice-wrapper">
+            <div class="sentence-box" id="jumb-en"></div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Click words to move them into the box (Click box to undo)</div>
+            <div id="sent-answer-box" class="sentence-box" onclick="removeLastJumbleWord()"></div>
+            <div id="sent-jumble-area" class="jumble-area"></div>
+            <div id="jumb-input-area" style="width:100%;">
+                <button class="check-btn" onclick="checkAnswer()">Check Arrangement</button>
+            </div>
+            <div id="jumb-answers" class="sentence-box" style="display:none; background: #28a745; color: white; border:none;"></div>
         </div>
 
-        <!-- Shared Tools & Tagging -->
+        <!-- MODE 6: Grammar Tables -->
+        <div id="mode-grammar" class="practice-wrapper" style="max-width: 100%; overflow-x: auto;">
+            <table class="grammar-table" id="grammar-grid"></table>
+        </div>
+
+        <!-- Shared Tools -->
         <div class="card-tools" id="shared-tools">
             <button class="tool-btn" onclick="showHint()">💡 Hint</button>
             <button class="tool-btn" onclick="speakGerman()">🔊 Listen</button>
@@ -234,15 +272,15 @@
 
     <script>
         // ==========================================
-        // 1. FIREBASE CONFIGURATION (YOUR KEYS)
+        // 1. FIREBASE CONFIGURATION (PASTE KEYS HERE)
         // ==========================================
         const firebaseConfig = {
-            apiKey: "AIzaSyCJMDK0OP-Lw6Bvhj8RaBZjqvpgWndTAao",
-            authDomain: "german-flashcards-5e519.firebaseapp.com",
-            projectId: "german-flashcards-5e519",
-            storageBucket: "german-flashcards-5e519.firebasestorage.app",
-            messagingSenderId: "412566872637",
-            appId: "1:412566872637:web:4c1e754db9ebbab9ff0054"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
         
         firebase.initializeApp(firebaseConfig);
@@ -252,36 +290,32 @@
         // 2. STATE VARIABLES
         // ==========================================
         let appData = {}; 
-        let _headers = {}; // Stores Excel Headers
+        let _headers = {}; 
         
-        // Navigation State
         let navState = { section: null, level: null };
-        
-        // Practice State
         let practiceQueue = [];
         let currentIndex = 0;
         let selectedTags = new Set();
         let selectedTableForModal = "";
-        let currentMode = ""; // e.g. "Vocabulary"
+        let currentMode = ""; 
 
-        // Tag Definitions by Section
+        // Jumble State
+        let jumbleWords = [];
+        let currentJumbleAnswer = [];
+
         const tagMaps = {
             "Vocabulary": ["Easy", "Medium", "Difficult", "Not so important", "Wrong Article", "Wrong Spell"],
-            "Verbs": ["Easy", "Medium", "Difficult", "Not so important", "Wrong Spell"],
+            "Verbs": ["Easy", "Medium", "Difficult", "Not so important"],
             "FillBlanks": ["Easy", "Medium", "Difficult", "Wrong Spell"],
             "Sentences": ["Easy", "Medium", "Difficult", "Grammar Mistake", "Wrong Spell"],
+            "Jumble": ["Easy", "Medium", "Difficult", "Wrong Spell"],
             "Grammar": ["Review Entire Table", "Mastered"]
         };
         
-        // Profiles & Theme
         let knownProfiles = JSON.parse(localStorage.getItem("knownProfiles")) || ["main"];
         let currentProfile = localStorage.getItem("vocabProfile") || "main";
-        
         if (localStorage.getItem("theme") === "dark") document.body.setAttribute("data-theme", "dark");
 
-        // ==========================================
-        // 3. INITIALIZATION
-        // ==========================================
         window.onload = function() {
             renderProfileDropdown();
             loadCloudData();
@@ -298,7 +332,7 @@
             }
         }
 
-        // --- PROFILE LOGIC ---
+        // --- PROFILES & CLOUD ---
         function renderProfileDropdown() {
             const select = document.getElementById("profile-select");
             select.innerHTML = "";
@@ -323,7 +357,7 @@
             renderProfileDropdown();
             appData = {}; _headers = {};
             loadCloudData(); 
-            goBack(); // Reset view
+            goBack(); 
         }
 
         function switchProfile() {
@@ -362,7 +396,6 @@
             renderProfileDropdown(); loadCloudData(); goBack();
         }
 
-        // --- CLOUD LOGIC ---
         async function loadCloudData() {
             const syncLabel = document.getElementById("sync-status");
             syncLabel.style.display = "block"; syncLabel.innerText = "Loading data...";
@@ -388,9 +421,7 @@
               .catch(err => console.error("Save Failed", err));
         }
 
-        // ==========================================
-        // 4. DYNAMIC EXCEL PARSER (V6 CORE)
-        // ==========================================
+        // --- EXCEL PARSER ---
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -408,7 +439,7 @@
                 for (let i = 1; i < indexData.length; i++) {
                     if (indexData[i].length >= 3) {
                         const sheetName = indexData[i][0];
-                        const tableName = indexData[i][1]; // e.g. Vocabulary_A1_Food
+                        const tableName = indexData[i][1];
                         const tableRange = indexData[i][2];
 
                         if (!newTableOrder.includes(tableName)) newTableOrder.push(tableName);
@@ -417,17 +448,15 @@
                         const rawData = XLSX.utils.sheet_to_json(sheet, {range: tableRange, header: 1});
                         
                         if (!appData[tableName]) appData[tableName] = [];
-                        if (rawData.length > 0) _headers[tableName] = rawData[0]; // Save headers
+                        if (rawData.length > 0) _headers[tableName] = rawData[0]; 
 
                         for (let r = 1; r < rawData.length; r++) {
                             const rowArray = rawData[r];
                             if (rowArray && rowArray.length > 0 && rowArray[0]) {
-                                // Match based on Column A (English/Prompt)
                                 const exists = appData[tableName].find(w => w.rowData[0] === rowArray[0]);
                                 if (!exists) {
                                     appData[tableName].push({ rowData: rowArray, categories: [], comment: "", lastPracticed: "" });
                                 } else {
-                                    // Update text data but keep progress
                                     exists.rowData = rowArray;
                                 }
                             }
@@ -437,14 +466,12 @@
                 
                 appData._tableOrder = newTableOrder;
                 saveData();
-                alert("Excel synced successfully! Dynamic tables built.");
+                alert("Excel synced successfully!");
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // ==========================================
-        // 5. NAVIGATION (CATEGORY -> LEVEL -> TABLE)
-        // ==========================================
+        // --- NAVIGATION ---
         function goBack() {
             if (navState.level) { navState.level = null; openLevelSelection(navState.section); }
             else { navState.section = null; document.getElementById("view-levels").style.display = "none"; document.getElementById("view-tables").style.display = "none"; document.getElementById("view-hubs").style.display = "grid"; document.getElementById("breadcrumb").style.display = "none"; }
@@ -504,7 +531,7 @@
                 if (parts[0] === section && parts[1] === level) {
                     const words = appData[tableName];
                     const practiced = words.filter(w => w.categories.length > 0).length;
-                    const displayName = parts.slice(2).join(" "); // Joins remaining parts
+                    const displayName = parts.slice(2).join(" ");
                     
                     const card = document.createElement("div");
                     card.className = "table-card";
@@ -515,9 +542,6 @@
             });
         }
 
-        // ==========================================
-        // 6. PRACTICE INITIALIZATION
-        // ==========================================
         function openModal(tableName, section) {
             selectedTableForModal = tableName;
             currentMode = section;
@@ -534,7 +558,6 @@
             practiceQueue = [];
             const tableData = appData[selectedTableForModal];
 
-            // Grammar mode handles the WHOLE table at once, not item by item
             if (currentMode === "Grammar") {
                 practiceQueue.push({tableName: selectedTableForModal, index: 0, data: { isGrammarBlock: true }});
             } else {
@@ -549,15 +572,13 @@
             startUI();
         }
 
+        // --- PRACTICE UI ---
         function startUI() {
             document.getElementById("main-view").style.display = "none";
             document.getElementById("practice-area").style.display = "flex";
-            
-            // Hide all wrappers
             document.querySelectorAll(".practice-wrapper").forEach(w => w.style.display = "none");
             
-            // Determine Wrapper Map
-            const wrapperMap = { "Vocabulary": "mode-vocab", "Verbs": "mode-verbs", "FillBlanks": "mode-fillblanks", "Sentences": "mode-sentences", "Grammar": "mode-grammar" };
+            const wrapperMap = { "Vocabulary": "mode-vocab", "Verbs": "mode-verbs", "FillBlanks": "mode-fillblanks", "Sentences": "mode-sentences", "Jumble": "mode-jumble", "Grammar": "mode-grammar" };
             document.getElementById(wrapperMap[currentMode]).style.display = "flex";
 
             renderCategoryButtons();
@@ -570,14 +591,11 @@
             const obj = practiceQueue[currentIndex];
             
             document.getElementById("progress-text").innerText = `${obj.tableName.split('_').slice(2).join(" ")} - ${currentIndex + 1} of ${practiceQueue.length}`;
-            
-            // Reset Shared UI
             document.getElementById("controls").style.display = "none";
             document.getElementById("spell-result").innerText = "";
             document.getElementById("hint-text").style.display = "none";
-            document.getElementById("shared-tools").style.display = (currentMode === "Grammar") ? "none" : "flex";
+            document.getElementById("shared-tools").style.display = (currentMode === "Grammar" || currentMode === "Verbs") ? "none" : "flex";
 
-            // Determine Tag Selection
             selectedTags = new Set(obj.data.categories || []);
             document.querySelectorAll(".cat-btn").forEach(btn => {
                 if (selectedTags.has(btn.innerText)) btn.classList.add("selected"); else btn.classList.remove("selected");
@@ -585,7 +603,6 @@
 
             const row = obj.data.rowData;
 
-            // --- UI ROUTING ---
             if (currentMode === "Vocabulary") {
                 document.getElementById("vocab-card").classList.remove("flipped");
                 document.getElementById("vocab-input-area").style.display = "block";
@@ -596,12 +613,16 @@
                 document.getElementById("vocab-input").focus();
             } 
             else if (currentMode === "Verbs") {
-                document.getElementById("verb-input-area").style.display = "block";
-                document.getElementById("verb-answers").style.display = "none";
-                document.getElementById("verb-en").innerText = row[0] || "";
-                document.getElementById("verb-inf").innerText = row[1] ? `(${row[1]})` : "";
-                document.getElementById("verb-pres").value = ""; document.getElementById("verb-past").value = ""; document.getElementById("verb-fut").value = "";
-                document.getElementById("verb-pres").focus();
+                // Reset all 4 cards
+                ["main", "pres", "past", "fut"].forEach(id => document.getElementById(`verb-card-${id}`).classList.remove("flipped"));
+                document.getElementById("verb-reveal-btn").style.display = "block";
+                
+                // Populate data
+                document.getElementById("v-en-main").innerText = row[0] || "";
+                document.getElementById("v-de-main").innerText = row[1] || "";
+                document.getElementById("v-de-pres").innerText = row[2] || "";
+                document.getElementById("v-de-past").innerText = row[3] || "";
+                document.getElementById("v-de-fut").innerText = row[4] || "";
             }
             else if (currentMode === "FillBlanks") {
                 document.getElementById("fill-input-area").style.display = "block";
@@ -618,16 +639,71 @@
                 document.getElementById("sent-input").value = "";
                 document.getElementById("sent-input").focus();
             }
+            else if (currentMode === "Jumble") {
+                document.getElementById("jumb-input-area").style.display = "block";
+                document.getElementById("jumb-answers").style.display = "none";
+                document.getElementById("jumb-en").innerText = row[0] || "";
+                
+                const targetSentence = (row[1] || "").trim();
+                jumbleWords = targetSentence.split(" ").sort(() => Math.random() - 0.5);
+                currentJumbleAnswer = [];
+                renderJumble();
+            }
             else if (currentMode === "Grammar") {
                 buildGrammarGrid(obj.tableName);
-                document.getElementById("controls").style.display = "flex"; // Show Save buttons immediately
+                document.getElementById("controls").style.display = "flex"; 
                 document.getElementById("progress-text").innerText = `${obj.tableName.split('_').slice(2).join(" ")} - Full Grid`;
             }
         }
 
-        // ==========================================
-        // 7. CHECKING & REVEAL LOGIC
-        // ==========================================
+        // --- VERB INTERACTION ---
+        function flipVerbCard(type) {
+            const card = document.getElementById(`verb-card-${type}`);
+            card.classList.toggle("flipped");
+            
+            // Speak if flipped to back
+            if (card.classList.contains("flipped")) {
+                const text = document.getElementById(type === 'main' ? 'v-de-main' : `v-de-${type}`).innerText;
+                speakText(text);
+            }
+        }
+
+        function revealAllVerbs() {
+            ["main", "pres", "past", "fut"].forEach(id => {
+                const c = document.getElementById(`verb-card-${id}`);
+                if(!c.classList.contains("flipped")) c.classList.add("flipped");
+            });
+            document.getElementById("verb-reveal-btn").style.display = "none";
+            document.getElementById("controls").style.display = "flex"; // Show Save & Next
+        }
+
+        // --- JUMBLE LOGIC ---
+        function renderJumble() {
+            const jArea = document.getElementById("sent-jumble-area");
+            const aBox = document.getElementById("sent-answer-box");
+            
+            jArea.innerHTML = "";
+            jumbleWords.forEach((word, idx) => {
+                let btn = document.createElement("button");
+                btn.className = "tool-btn"; btn.innerText = word;
+                btn.onclick = () => {
+                    currentJumbleAnswer.push(word);
+                    jumbleWords.splice(idx, 1);
+                    renderJumble();
+                };
+                jArea.appendChild(btn);
+            });
+            aBox.innerHTML = currentJumbleAnswer.length > 0 ? currentJumbleAnswer.map(w => `<span style="padding: 5px 10px; background: #007BFF; color: white; border-radius: 5px;">${w}</span>`).join("") : `<span style="color: var(--text-muted); font-weight: normal;">(Sentence goes here)</span>`;
+        }
+
+        function removeLastJumbleWord() {
+            if (currentJumbleAnswer.length > 0) {
+                jumbleWords.push(currentJumbleAnswer.pop());
+                renderJumble();
+            }
+        }
+
+        // --- CHECK ANSWERS ---
         function checkAnswer() {
             const obj = practiceQueue[currentIndex];
             const row = obj.data.rowData;
@@ -641,20 +717,6 @@
                 document.getElementById("vocab-input-area").style.display = "none";
                 document.getElementById("vocab-card").classList.add("flipped");
             }
-            else if (currentMode === "Verbs") {
-                const iPres = document.getElementById("verb-pres").value.trim().toLowerCase();
-                const iPast = document.getElementById("verb-past").value.trim().toLowerCase();
-                const iFut = document.getElementById("verb-fut").value.trim().toLowerCase();
-                
-                const tPres = (row[2]||"").trim().toLowerCase();
-                const tPast = (row[3]||"").trim().toLowerCase();
-                const tFut = (row[4]||"").trim().toLowerCase();
-
-                isCorrect = (iPres===tPres && iPast===tPast && iFut===tFut);
-                document.getElementById("verb-input-area").style.display = "none";
-                document.getElementById("verb-answers").innerHTML = `Präsens: <b>${row[2]||"-"}</b><br>Past: <b>${row[3]||"-"}</b><br>Future: <b>${row[4]||"-"}</b>`;
-                document.getElementById("verb-answers").style.display = "block";
-            }
             else if (currentMode === "FillBlanks") {
                 const input = document.getElementById("fill-input").value.trim().toLowerCase();
                 if(!input) return;
@@ -666,12 +728,20 @@
             else if (currentMode === "Sentences") {
                 const input = document.getElementById("sent-input").value.trim().toLowerCase();
                 const target = (row[1]||"").trim().toLowerCase();
-                // Strip punctuation for fuzzy compare
                 const cleanI = input.replace(/[.,!?]/g,""); const cleanT = target.replace(/[.,!?]/g,"");
                 isCorrect = (cleanI === cleanT);
                 document.getElementById("sent-input-area").style.display = "none";
                 document.getElementById("sent-answers").innerText = row[1];
                 document.getElementById("sent-answers").style.display = "block";
+            }
+            else if (currentMode === "Jumble") {
+                const input = currentJumbleAnswer.join(" ").trim();
+                const target = (row[1]||"").trim();
+                isCorrect = (input === target);
+                document.getElementById("jumb-input-area").style.display = "none";
+                document.getElementById("sent-jumble-area").innerHTML = "";
+                document.getElementById("jumb-answers").innerText = row[1];
+                document.getElementById("jumb-answers").style.display = "block";
             }
 
             if(isCorrect) { resBox.innerText = "✅ Correct!"; resBox.style.color = "#28a745"; }
@@ -679,24 +749,24 @@
             
             document.getElementById("controls").style.display = "flex";
             document.getElementById("shared-tools").style.display = "none";
-            speakGermanLogic(row);
+            
+            // Speak full context
+            if (currentMode === "Vocabulary") speakText(row[1]);
+            else if (currentMode === "FillBlanks") speakText(row[1].replace("___", row[2]||""));
+            else if (currentMode === "Sentences" || currentMode === "Jumble") speakText(row[1]);
         }
 
-        // ==========================================
-        // 8. CUSTOM UI RENDERERS
-        // ==========================================
+        // --- UTILS & OTHERS ---
         function buildGrammarGrid(tableName) {
             const tableData = appData[tableName];
             const headers = _headers[tableName] || [];
             const grid = document.getElementById("grammar-grid");
             grid.innerHTML = "";
 
-            // Render Header
             let trH = document.createElement("tr");
             headers.forEach(h => { let th = document.createElement("th"); th.innerText = h||""; trH.appendChild(th); });
             grid.appendChild(trH);
 
-            // Render Rows (Column 0 visible, rest hidden)
             tableData.forEach(obj => {
                 let tr = document.createElement("tr");
                 let rowData = obj.rowData;
@@ -714,24 +784,19 @@
         }
 
         function flipVocabCard() {
-            // Manual flip logic if user clicks card instead of typing
             if(document.getElementById("vocab-input-area").style.display !== "none") {
                 document.getElementById("vocab-input-area").style.display = "none";
                 document.getElementById("vocab-card").classList.add("flipped");
                 document.getElementById("controls").style.display = "flex";
                 document.getElementById("shared-tools").style.display = "none";
-                speakGermanLogic(practiceQueue[currentIndex].data.rowData);
+                speakText(practiceQueue[currentIndex].data.rowData[1]);
             }
         }
 
-        // ==========================================
-        // 9. TOOLS & SAVING
-        // ==========================================
         function showHint() {
             const row = practiceQueue[currentIndex].data.rowData;
             let target = "";
             if (currentMode === "Vocabulary") target = row[1];
-            else if (currentMode === "Verbs") target = row[2]; // Hint present
             else if (currentMode === "FillBlanks") target = row[2];
             else if (currentMode === "Sentences") target = row[1];
             
@@ -743,15 +808,15 @@
             document.getElementById("hint-text").style.display = "block";
         }
 
-        function speakGerman() { speakGermanLogic(practiceQueue[currentIndex].data.rowData); }
+        function speakGerman() {
+            const row = practiceQueue[currentIndex].data.rowData;
+            if (currentMode === "Vocabulary") speakText(row[1]);
+            else if (currentMode === "FillBlanks") speakText(row[1].replace("___", row[2]||""));
+            else if (currentMode === "Sentences" || currentMode === "Jumble") speakText(row[1]);
+        }
         
-        function speakGermanLogic(row) {
-            let target = "";
-            if (currentMode === "Vocabulary") target = row[1];
-            else if (currentMode === "Verbs") target = row[1] + " " + row[2];
-            else if (currentMode === "FillBlanks") target = row[1].replace("___", row[2]||"");
-            else if (currentMode === "Sentences") target = row[1];
-            if(target) { const u = new SpeechSynthesisUtterance(target); u.lang = 'de-DE'; window.speechSynthesis.speak(u); }
+        function speakText(txt) {
+            if(txt) { const u = new SpeechSynthesisUtterance(txt); u.lang = 'de-DE'; window.speechSynthesis.speak(u); }
         }
 
         function renderCategoryButtons() {
@@ -775,7 +840,6 @@
             const today = new Date().toISOString().split('T')[0];
             
             if (currentMode === "Grammar") {
-                // Apply tag to entire table
                 appData[obj.tableName].forEach(w => {
                     w.categories = Array.from(selectedTags); w.lastPracticed = today;
                 });
@@ -792,7 +856,6 @@
         function exitPractice() {
             document.getElementById("practice-area").style.display = "none";
             document.getElementById("main-view").style.display = "flex";
-            // Re-render current dashboard view
             if(navState.level) openTableSelection(navState.section, navState.level);
             else if (navState.section) openLevelSelection(navState.section);
         }
