@@ -103,6 +103,7 @@
                 Profile: 
                 <select id="profile-select" onchange="switchProfile()" style="max-width: 120px;"></select>
                 <button class="icon-btn" onclick="createNewProfile()" title="Add New User" style="font-size: 16px; margin: 0; padding: 5px; background: var(--border-color); border-radius: 5px;">➕</button>
+                <button class="icon-btn" onclick="triggerDeleteData()" title="Danger Zone: Delete Data" style="font-size: 16px; margin: 0; padding: 5px; background: #ffebee; border: 1px solid #ffcdd2; color: #d32f2f; border-radius: 5px;">🗑️</button>
             </div>
             <div>
                 <button class="tool-btn" onclick="toggleDarkMode()">🌙 Theme</button>
@@ -275,6 +276,75 @@
             loadCloudData();
         }
 
+        // --- NEW: DOUBLE AUTHENTICATION DELETE SYSTEM ---
+        async function triggerDeleteData() {
+            const action = prompt(`DANGER ZONE for '${currentProfile}':\nType 'HISTORY' to erase all progress/categories (keep words).\nType 'DELETE' to permanently delete this user account.`);
+            
+            if (!action) return;
+
+            if (action.toUpperCase() === 'HISTORY') {
+                const authCheck = prompt(`DOUBLE AUTHENTICATION: Type the username '${currentProfile}' to confirm history wipe.`);
+                if (authCheck === currentProfile) {
+                    wipeProfileHistory();
+                } else {
+                    alert("Authentication Failed. History was NOT cleared.");
+                }
+            } 
+            else if (action.toUpperCase() === 'DELETE') {
+                if (knownProfiles.length === 1) return alert("You cannot delete the only profile. Clear HISTORY instead, or create a new profile first.");
+                
+                const authCheck = prompt(`DOUBLE AUTHENTICATION: Type the username '${currentProfile}' to permanently delete this account.`);
+                if (authCheck === currentProfile) {
+                    deleteProfileComplete();
+                } else {
+                    alert("Authentication Failed. Account was NOT deleted.");
+                }
+            } else {
+                alert("Invalid command.");
+            }
+        }
+
+        function wipeProfileHistory() {
+            // Loop through all tables and wipe categories, dates, and comments
+            for (const table in appData) {
+                if (table === '_tableOrder') continue;
+                appData[table].forEach(w => {
+                    w.categories = [];
+                    w.lastPracticed = "";
+                    w.comment = "";
+                });
+            }
+            saveData();
+            renderDashboard();
+            alert(`Success: All practice history for ${currentProfile} has been reset!`);
+        }
+
+        async function deleteProfileComplete() {
+            const docName = "masterData_" + currentProfile;
+            try {
+                // 1. Delete from Firebase
+                await db.collection("vocabApp").doc(docName).delete();
+                
+                // 2. Remove from Local Storage array
+                knownProfiles = knownProfiles.filter(p => p !== currentProfile);
+                localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles));
+                
+                // 3. Switch to the next available profile
+                currentProfile = knownProfiles[0];
+                localStorage.setItem("vocabProfile", currentProfile);
+                
+                renderProfileDropdown();
+                appData = {};
+                loadCloudData();
+                alert("User profile permanently deleted from the cloud.");
+                
+            } catch (error) {
+                console.error("Delete Error:", error);
+                alert("Failed to delete from cloud. Check your connection.");
+            }
+        }
+        // ------------------------------------------------
+
         async function loadCloudData() {
             const syncLabel = document.getElementById("sync-status");
             syncLabel.style.display = "block";
@@ -326,7 +396,6 @@
                 
                 const indexData = XLSX.utils.sheet_to_json(indexSheet, {header: 1});
 
-                // Track the specific order of the tables from the Excel file
                 let newTableOrder = [];
 
                 for (let i = 1; i < indexData.length; i++) {
@@ -335,7 +404,6 @@
                         const tableName = indexData[i][1];
                         const tableRange = indexData[i][2];
 
-                        // Build the strict order list
                         if (!newTableOrder.includes(tableName)) newTableOrder.push(tableName);
 
                         const sheet = workbook.Sheets[sheetName];
@@ -356,9 +424,7 @@
                     }
                 }
                 
-                // Save the exact table order into memory
                 appData._tableOrder = newTableOrder;
-                
                 saveData();
                 renderDashboard();
                 alert("Excel synced successfully! Table order updated.");
@@ -370,7 +436,6 @@
             if (Object.keys(appData).length === 0) return alert("No data to export.");
             
             let exportArray = [];
-            // Use strict order if available
             const order = appData._tableOrder || Object.keys(appData).filter(k => k !== '_tableOrder');
             
             order.forEach(tableName => {
@@ -404,13 +469,12 @@
             const grid = document.getElementById("table-grid");
             grid.innerHTML = "";
 
-            // ALWAYS render using the saved table order!
             const order = appData._tableOrder || Object.keys(appData).filter(k => k !== '_tableOrder');
 
             order.forEach(tableName => {
                 if (tableName === '_tableOrder') return;
                 const words = appData[tableName];
-                if (!words) return; // safeguard
+                if (!words) return;
 
                 const practiced = words.filter(w => w.categories.length > 0).length;
                 const card = document.createElement("div");
@@ -427,7 +491,7 @@
             categoryOptions.forEach(c => catCounts[c] = 0);
 
             for (const table in appData) {
-                if (table === '_tableOrder') continue; // Skip memory key
+                if (table === '_tableOrder') continue;
                 totalWords += appData[table].length;
                 appData[table].forEach(w => {
                     if (dateFilter && w.lastPracticed !== dateFilter) return;
@@ -486,7 +550,7 @@
         function initGlobalPractice(category, dateStr) {
             practiceQueue = [];
             for (const [tableName, words] of Object.entries(appData)) {
-                if (tableName === '_tableOrder') continue; // Skip memory key
+                if (tableName === '_tableOrder') continue;
                 words.forEach((w, i) => {
                     let match = w.categories.includes(category);
                     if (dateStr && w.lastPracticed !== dateStr) match = false;
