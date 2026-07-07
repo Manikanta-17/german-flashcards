@@ -172,6 +172,34 @@
             opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; z-index:2000; max-width:90%; text-align:center; }
         #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
+        /* --- V7.1 additions --- */
+        .practice-nav { display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom:8px; gap:10px; }
+        .nav-btn { background:var(--bg-color); color:var(--text-main); border:1px solid var(--border-color); padding:6px 14px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold; }
+        .nav-btn:hover { background:var(--border-color); }
+        .nav-btn:disabled { opacity:.35; cursor:default; }
+
+        .art-der { color:#2f6fd6; } .art-die { color:#d64550; } .art-das { color:#2fa84f; }
+        [data-theme="dark"] .art-der { color:#6ea8ff; } [data-theme="dark"] .art-die { color:#ff8a94; } [data-theme="dark"] .art-das { color:#5fd07f; }
+
+        .reverse-toggle { align-self:flex-end; margin-bottom:10px; background:var(--bg-color); color:var(--text-main); border:1px solid var(--border-color); padding:5px 12px; border-radius:14px; cursor:pointer; font-size:12px; font-weight:bold; }
+
+        .home-tools { display:flex; gap:10px; align-items:center; margin-bottom:14px; }
+        .search-input { flex:1; padding:10px 12px; border:1px solid var(--border-color); border-radius:8px; background:var(--bg-color); color:var(--text-main); font-size:14px; }
+        .streak-line { font-size:13px; color:var(--text-muted); margin-bottom:12px; text-align:center; }
+
+        #list-area { display:none; }
+        .list-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+        .list-row { display:flex; align-items:center; gap:10px; padding:12px 4px; border-bottom:1px solid var(--border-color); flex-wrap:wrap; }
+        .list-row:last-child { border-bottom:none; }
+        .list-en { flex:1; font-weight:bold; min-width:120px; }
+        .list-de { flex:1; text-align:right; min-width:120px; }
+        .list-de.hidden-de { color:var(--text-muted); cursor:pointer; font-style:italic; font-weight:normal; }
+        .list-ex { flex-basis:100%; font-size:12px; color:var(--text-muted); font-style:italic; }
+        .list-tags { flex-basis:100%; font-size:11px; color:var(--teal); }
+        .list-speak { background:none; border:none; cursor:pointer; font-size:18px; color:var(--text-main); }
+        .toggle-btn { background:var(--bg-color); color:var(--text-main); border:1px solid var(--border-color); padding:8px 12px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:bold; }
+        .toggle-btn.on { background:var(--teal); color:#fff; border-color:var(--teal); }
+
         @media (max-width:520px) {
             body { padding:12px; }
             .container { padding:18px; }
@@ -209,6 +237,15 @@
 
         <div id="breadcrumb" class="breadcrumb" style="display:none;" onclick="goHome()">← Home</div>
 
+        <!-- HOME extras: streak + search (hidden inside sections) -->
+        <div id="home-extra">
+            <div class="streak-line" id="streak-line" style="display:none;"></div>
+            <div class="home-tools">
+                <input class="search-input" id="search-input" placeholder="Search all words… (press Enter)" onkeypress="if(event.key==='Enter') runSearch()">
+                <button class="toggle-btn" onclick="runSearch()">🔍 Find</button>
+            </div>
+        </div>
+
         <!-- HOME: 6 icons only -->
         <div id="view-hubs" class="hub-grid"></div>
 
@@ -232,6 +269,7 @@
             <div id="modal-grammar" style="display:none;">
                 <button class="primary-btn" onclick="initPractice('grammar')">Open grammar table</button>
             </div>
+            <button class="primary-btn" onclick="browseTable()" style="background-color:#6c757d;">📖 See all words</button>
             <button class="link-btn" onclick="closeModal()">Cancel</button>
         </div>
     </div>
@@ -243,15 +281,21 @@
             <button class="icon-btn" onclick="exitPractice()" title="Exit practice">✖️</button>
         </div>
 
+        <div class="practice-nav">
+            <button class="nav-btn" id="prev-btn" onclick="previousCard()">◀ Previous</button>
+            <button class="nav-btn" id="skip-btn" onclick="skipCard()">Skip ▶</button>
+        </div>
+
         <div id="spell-result"></div>
 
         <!-- Vocabulary -->
         <div id="mode-Vocabulary" class="practice-wrapper">
+            <button class="reverse-toggle" id="vocab-reverse-btn" onclick="toggleReverse()">⇄ EN → DE</button>
             <div class="card-container" onclick="flipVocabCard()">
                 <div class="card" id="vocab-card">
-                    <div class="card-face card-front"><span class="small-lbl">English</span><span id="vocab-en">Word</span></div>
+                    <div class="card-face card-front"><span class="small-lbl" id="vocab-front-lbl">English</span><span id="vocab-en">Word</span></div>
                     <div class="card-face card-back">
-                        <span class="small-lbl">German</span>
+                        <span class="small-lbl" id="vocab-back-lbl">German</span>
                         <span id="vocab-de">Wort</span>
                         <span id="vocab-extra" style="font-size:14px; font-weight:normal; margin-top:10px;"></span>
                     </div>
@@ -340,10 +384,24 @@
         <div id="hint-text"></div>
 
         <div id="controls">
+            <button class="tool-btn" onclick="speakGerman()" style="align-self:center;">🔊 Hear answer</button>
             <div class="categories" id="category-container"></div>
             <textarea id="comment-input" class="custom-input" rows="2" placeholder="Your notes for this item (optional)…"></textarea>
             <button class="save-btn" onclick="nextCard()">Save &amp; next</button>
         </div>
+    </div>
+
+    <!-- ============ WORD LIST (browse) ============ -->
+    <div class="container" id="list-area">
+        <div class="header-bar" style="padding-bottom:10px;">
+            <h2 id="list-title">Words</h2>
+            <button class="icon-btn" onclick="closeWordList()" title="Back">✖️</button>
+        </div>
+        <div class="list-controls">
+            <button class="toggle-btn" id="hide-de-btn" onclick="toggleHideGerman()">🙈 Hide German</button>
+            <select id="list-filter" onchange="renderWordList()" style="display:none;"></select>
+        </div>
+        <div id="list-body"></div>
     </div>
 
     <!-- ============ SESSION SUMMARY ============ -->
@@ -388,6 +446,13 @@
     let sessionMode = "";
     let sessionStats = { correct:0, wrong:0, graded:0 };
     let currentSection = null;   // which hub is open (null = home)
+    let gradedThisSession = new Set();  // queue indices already scored (prevents double-count on back/forward)
+    let vocabReverse = false;    // false = EN->DE, true = DE->EN
+
+    // Word-list (browse) state
+    let listEntries = [];
+    let hideGerman = false;
+    let listReturn = null;
 
     let jumbleWords = [];
     let currentJumbleAnswer = [];
@@ -420,7 +485,19 @@
         renderHubs();
         renderProfileDropdown();
         loadCloudData();
+        document.addEventListener("keydown", onKeyShortcut);
     };
+
+    // Keyboard: ← previous · → next/skip · Enter save (only during practice, not while typing)
+    function onKeyShortcut(e) {
+        if (document.getElementById("practice-area").style.display === "none") return;
+        const tag = (document.activeElement && document.activeElement.tagName) || "";
+        const typing = (tag === "INPUT" || tag === "TEXTAREA");
+        const controlsOpen = document.getElementById("controls").style.display !== "none";
+        if (e.key === "ArrowLeft" && !typing) { previousCard(); }
+        else if (e.key === "ArrowRight" && !typing) { controlsOpen ? nextCard() : skipCard(); }
+        else if (e.key === "Enter" && controlsOpen && tag !== "TEXTAREA") { e.preventDefault(); nextCard(); }
+    }
 
     // ==========================================================
     // 3. HELPERS
@@ -664,6 +741,7 @@
         document.getElementById("main-view").style.display    = (name === "main")    ? "block" : "none";
         document.getElementById("practice-area").style.display = (name === "practice") ? "flex"  : "none";
         document.getElementById("summary-area").style.display  = (name === "summary")  ? "flex"  : "none";
+        document.getElementById("list-area").style.display     = (name === "list")     ? "block" : "none";
     }
 
     function goHome() {
@@ -671,8 +749,11 @@
         showScreen("main");
         document.getElementById("main-title").innerText = "Home";
         document.getElementById("breadcrumb").style.display = "none";
+        document.getElementById("home-extra").style.display = "block";
         document.getElementById("view-hubs").style.display = "grid";
         document.getElementById("view-section").style.display = "none";
+        refreshHubSubtitles();
+        renderStreak();
     }
 
     function renderHubs() {
@@ -707,6 +788,7 @@
         showScreen("main");
         document.getElementById("view-hubs").style.display = "none";
         document.getElementById("view-section").style.display = "block";
+        document.getElementById("home-extra").style.display = "none";
         document.getElementById("main-title").innerText = HUBS.find(h => h.mode === mode).title;
         document.getElementById("breadcrumb").style.display = "block";
 
@@ -733,7 +815,8 @@
                     '<div class="sum-box"><span>' + done + '</span><small>tagged</small></div>' +
                     '<div class="sum-box clickable" onclick="reviewSectionDue(\'' + mode + '\')"><span>' + due + '</span><small>due ▶</small></div>' +
                 '</div>' +
-                (badges ? '<div class="tag-row">' + badges + '</div>' : '<div style="font-size:12px;opacity:.8;">Tag items while practicing to build quick review sets here.</div>');
+                (badges ? '<div class="tag-row">' + badges + '</div>' : '<div style="font-size:12px;opacity:.8;">Tag items while practicing to build quick review sets here.</div>') +
+                '<button class="toggle-btn" style="margin-top:12px;" onclick="browseSection(\'' + mode + '\')">📖 See all words</button>';
         }
 
         // Table cards
@@ -834,8 +917,25 @@
     // ==========================================================
     function startSession() {
         sessionStats = { correct:0, wrong:0, graded:0 };
+        gradedThisSession = new Set();
         showScreen("practice");
         currentIndex = 0;
+        loadCard();
+    }
+
+    // --- navigation within a session ---
+    function previousCard() {
+        if (currentIndex === 0) { toast("Already at the first item"); return; }
+        currentIndex--;
+        loadCard();
+    }
+    function skipCard() {
+        currentIndex++;
+        loadCard();  // will show summary if past the end
+    }
+    function toggleReverse() {
+        vocabReverse = !vocabReverse;
+        document.getElementById("vocab-reverse-btn").innerText = vocabReverse ? "⇄ DE → EN" : "⇄ EN → DE";
         loadCard();
     }
 
@@ -856,6 +956,10 @@
         document.getElementById("shared-tools").style.display = (currentMode === "Grammar" || currentMode === "Verbs") ? "none" : "flex";
 
         document.getElementById("progress-text").innerText = displayName(obj.tableName) + " · " + (currentIndex + 1) + " of " + practiceQueue.length;
+        document.getElementById("prev-btn").disabled = (currentIndex === 0);
+        const revBtn = document.getElementById("vocab-reverse-btn");
+        revBtn.style.display = (currentMode === "Vocabulary") ? "block" : "none";
+        revBtn.innerText = vocabReverse ? "⇄ DE → EN" : "⇄ EN → DE";
 
         renderCategoryButtons();
         selectedTags = new Set(obj.data.categories || []);
@@ -867,9 +971,25 @@
             document.getElementById("vocab-card").classList.remove("flipped");
             document.getElementById("vocab-input-area").style.display = "block";
             document.getElementById("vocab-input").value = "";
-            document.getElementById("vocab-en").innerText = row[0] || "";
-            document.getElementById("vocab-de").innerText = row[1] || "";
-            document.getElementById("vocab-extra").innerText = row[2] ? "(" + row[2] + ")" : "";
+            const en = row[0] || "", de = row[1] || "";
+            const frontLbl = document.getElementById("vocab-front-lbl");
+            const backLbl  = document.getElementById("vocab-back-lbl");
+            const frontEl  = document.getElementById("vocab-en");
+            const backEl   = document.getElementById("vocab-de");
+            if (!vocabReverse) {
+                frontLbl.innerText = "English"; frontEl.innerText = en;
+                backLbl.innerText  = "German";  backEl.innerHTML = articleHTML(de);
+                document.getElementById("vocab-input").placeholder = "Type the German word…";
+            } else {
+                frontLbl.innerText = "German"; frontEl.innerHTML = articleHTML(de);
+                backLbl.innerText  = "English"; backEl.innerText = en;
+                document.getElementById("vocab-input").placeholder = "Type the English word…";
+            }
+            // extra line: plural/note (row[2]) + example sentence (row[3])
+            let extra = "";
+            if (row[2]) extra += "(" + row[2] + ")";
+            if (row[3]) extra += (extra ? "<br>" : "") + '<span style="opacity:.85;">„' + row[3] + '"</span>';
+            document.getElementById("vocab-extra").innerHTML = extra;
             document.getElementById("vocab-input").focus();
         }
         else if (currentMode === "Verbs") {
@@ -977,10 +1097,11 @@
 
         if (currentMode === "Vocabulary") {
             const input = document.getElementById("vocab-input").value; if (!input.trim()) return;
-            correct = normalize(input) === normalize(row[1]);
+            const answer = vocabReverse ? row[0] : row[1];
+            correct = normalize(input) === normalize(answer);
             document.getElementById("vocab-input-area").style.display = "none";
             document.getElementById("vocab-card").classList.add("flipped");
-            speakText(row[1]);
+            speakText(row[1]); // always pronounce the German
         }
         else if (currentMode === "FillBlanks") {
             const input = document.getElementById("fill-input").value; if (!input.trim()) return;
@@ -1058,17 +1179,144 @@
 
     function nextCard() {
         const obj = practiceQueue[currentIndex];
+        const firstTime = !gradedThisSession.has(currentIndex);   // only score/schedule once per session
+
         if (currentMode === "Grammar") {
-            appData[obj.tableName].forEach(w => { w.categories = Array.from(selectedTags); updateSrs(w, true); });
+            appData[obj.tableName].forEach(w => { w.categories = Array.from(selectedTags); if (firstTime) updateSrs(w, true); });
         } else {
             const item = appData[obj.tableName][obj.index];
             item.categories = Array.from(selectedTags);
-            item.comment = document.getElementById("comment-input").value;
+            item.comment = document.getElementById("comment-input").value;   // notes always saved
             const correct = (obj._correct !== undefined) ? obj._correct : true;
-            updateSrs(item, correct);
-            if (obj._graded) { sessionStats.graded++; correct ? sessionStats.correct++ : sessionStats.wrong++; }
+            if (firstTime) {
+                updateSrs(item, correct);
+                if (obj._graded) { sessionStats.graded++; correct ? sessionStats.correct++ : sessionStats.wrong++; }
+            }
         }
+        if (firstTime) { gradedThisSession.add(currentIndex); bumpStreak(); }
         saveData(); currentIndex++; loadCard();
+    }
+
+    // ==========================================================
+    // STREAK
+    // ==========================================================
+    function streakKey() { return "streak_" + currentProfile; }
+    function getStreak() { try { return JSON.parse(localStorage.getItem(streakKey())) || {}; } catch(e){ return {}; } }
+    function bumpStreak() {
+        const s = getStreak(); const today = todayStr();
+        if (s.todayDate !== today) s.todayCount = 0;
+        if (s.lastDate === today) { /* already counted a day today */ }
+        else if (s.lastDate === addDays(today, -1)) s.streak = (s.streak || 0) + 1;
+        else s.streak = 1;
+        s.lastDate = today; s.todayDate = today; s.todayCount = (s.todayCount || 0) + 1;
+        localStorage.setItem(streakKey(), JSON.stringify(s));
+        renderStreak();
+    }
+    function renderStreak() {
+        const s = getStreak(); const el = document.getElementById("streak-line");
+        if (!el) return;
+        const count = (s.todayDate === todayStr()) ? (s.todayCount || 0) : 0;
+        const streak = s.streak || 0;
+        if (streak > 0 || count > 0) { el.style.display = "block"; el.innerText = "🔥 " + streak + "-day streak · " + count + " practised today"; }
+        else el.style.display = "none";
+    }
+
+    // ==========================================================
+    // ARTICLE COLOUR + WORD LIST (browse) + SEARCH
+    // ==========================================================
+    function escapeHTML(s) { return (s == null ? "" : s.toString()).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+    function articleHTML(text) {
+        const m = (text || "").match(/^\s*(der|die|das)\b(.*)$/i);
+        if (!m) return escapeHTML(text);
+        return '<span class="art-' + m[1].toLowerCase() + '">' + escapeHTML(m[1]) + '</span>' + escapeHTML(m[2]);
+    }
+
+    // Build a display record for any item, based on its table's section
+    function entryDisplay(e) {
+        const mode = sectionOf(e.tableName);
+        const r = e.data.rowData || [];
+        let en = r[0] || "", de = r[1] || "", ex = "", speak = r[1] || "";
+        if (mode === "Vocabulary") { ex = r[3] || ""; }
+        else if (mode === "FillBlanks") { de = r[2] || ""; speak = (r[1] || "").replace("___", r[2] || ""); ex = r[1] || ""; }
+        else if (mode === "Grammar") { de = r.slice(1).filter(Boolean).join("  ·  "); speak = ""; }
+        return { en, de, ex, speak, mode, tags: e.data.categories || [] };
+    }
+
+    function openWordList(entries, title, returnFn) {
+        listEntries = entries; listReturn = returnFn; hideGerman = false;
+        document.getElementById("list-title").innerText = title;
+        document.getElementById("hide-de-btn").classList.remove("on");
+        document.getElementById("hide-de-btn").innerText = "🙈 Hide German";
+        // filter dropdown from tags present
+        const tags = new Set(); entries.forEach(e => (e.data.categories || []).forEach(t => tags.add(t)));
+        const sel = document.getElementById("list-filter");
+        if (tags.size) {
+            sel.style.display = "inline-block";
+            sel.innerHTML = '<option value="">All tags</option>' + Array.from(tags).sort().map(t => '<option value="' + escapeHTML(t) + '">' + escapeHTML(t) + '</option>').join("");
+        } else { sel.style.display = "none"; sel.innerHTML = ""; }
+        showScreen("list");
+        renderWordList();
+    }
+
+    function renderWordList() {
+        const body = document.getElementById("list-body");
+        const filter = document.getElementById("list-filter").value;
+        body.innerHTML = "";
+        const rows = listEntries.filter(e => !filter || (e.data.categories || []).includes(filter));
+        if (rows.length === 0) { body.innerHTML = '<div class="empty-note">No words to show.</div>'; return; }
+        rows.forEach(e => {
+            const d = entryDisplay(e);
+            const row = document.createElement("div"); row.className = "list-row";
+
+            const enEl = document.createElement("span"); enEl.className = "list-en"; enEl.innerText = d.en;
+            const deEl = document.createElement("span"); deEl.className = "list-de";
+            if (hideGerman) {
+                deEl.classList.add("hidden-de"); deEl.innerText = "tap to reveal";
+                deEl.onclick = () => { deEl.classList.remove("hidden-de"); deEl.innerHTML = articleHTML(d.de); };
+            } else {
+                deEl.innerHTML = articleHTML(d.de);
+            }
+            const spk = document.createElement("button"); spk.className = "list-speak"; spk.innerText = "🔊";
+            spk.title = "Listen"; spk.onclick = () => speakText(d.speak || d.de);
+
+            row.appendChild(enEl); row.appendChild(deEl); row.appendChild(spk);
+            if (d.ex) { const ex = document.createElement("span"); ex.className = "list-ex"; ex.innerText = "„" + d.ex + '"'; row.appendChild(ex); }
+            if (d.tags.length) { const tg = document.createElement("span"); tg.className = "list-tags"; tg.innerText = d.tags.map(t => "#" + t).join("  "); row.appendChild(tg); }
+            body.appendChild(row);
+        });
+    }
+
+    function toggleHideGerman() {
+        hideGerman = !hideGerman;
+        const btn = document.getElementById("hide-de-btn");
+        btn.classList.toggle("on", hideGerman);
+        btn.innerText = hideGerman ? "👁 Show German" : "🙈 Hide German";
+        renderWordList();
+    }
+    function closeWordList() { if (listReturn) listReturn(); else goHome(); }
+
+    // Entry points into the list
+    function browseTable() {
+        const t = selectedTableForModal;
+        closeModal();
+        const entries = appData[t].map((w, i) => ({ tableName: t, index: i, data: w }));
+        openWordList(entries, displayName(t), () => openSection(sectionOf(t)));
+    }
+    function browseSection(mode) {
+        const entries = [];
+        tablesInSection(mode).forEach(t => appData[t].forEach((w, i) => entries.push({ tableName: t, index: i, data: w })));
+        openWordList(entries, HUBS.find(h => h.mode === mode).title + " — all words", () => openSection(mode));
+    }
+    function runSearch() {
+        const q = (document.getElementById("search-input").value || "").trim().toLowerCase();
+        if (!q) { toast("Type something to search"); return; }
+        const entries = [];
+        realTables().forEach(t => appData[t].forEach((w, i) => {
+            const r = (w.rowData || []).join(" ").toLowerCase();
+            if (r.includes(q)) entries.push({ tableName: t, index: i, data: w });
+        }));
+        if (entries.length === 0) { toast("No matches for “" + q + "”"); return; }
+        openWordList(entries, 'Search: "' + q + '" (' + entries.length + ')', () => goHome());
     }
 
     // ==========================================================
