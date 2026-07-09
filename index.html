@@ -178,8 +178,25 @@
         .nav-btn:hover { background:var(--border-color); }
         .nav-btn:disabled { opacity:.35; cursor:default; }
 
-        .art-der { color:#2f6fd6; } .art-die { color:#d64550; } .art-das { color:#2fa84f; }
-        [data-theme="dark"] .art-der { color:#6ea8ff; } [data-theme="dark"] .art-die { color:#ff8a94; } [data-theme="dark"] .art-das { color:#5fd07f; }
+        .art-der { color:#2f6fd6; } .art-die { color:#d64550; } .art-das { color:#e8730c; }
+        [data-theme="dark"] .art-der { color:#6ea8ff; } [data-theme="dark"] .art-die { color:#ff8a94; } [data-theme="dark"] .art-das { color:#ffa64d; }
+
+        .article-filter, .single-actions { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+        .bulk-bar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; background:var(--bg-color); padding:10px; border-radius:8px; }
+        .list-actions { display:flex; gap:4px; }
+        .list-actions button { background:none; border:none; cursor:pointer; font-size:16px; padding:2px; }
+        .list-chips { display:flex; gap:5px; flex-wrap:wrap; flex-basis:100%; margin-top:6px; }
+        .list-chip { font-size:11px; padding:3px 9px; border-radius:10px; border:1px solid var(--border-color); background:transparent; color:var(--text-main); cursor:pointer; }
+        .list-chip.selected { background:var(--teal); color:#fff; border-color:var(--teal); }
+        .row-check { width:18px; height:18px; flex:0 0 auto; }
+        .danger-txt { color:var(--red) !important; border-color:var(--red) !important; }
+
+        .pg-chart { display:flex; gap:8px; align-items:flex-end; height:150px; }
+        .pg-bar { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+        .pg-fill { width:70%; background:var(--accent); border-radius:4px 4px 0 0; min-height:2px; }
+        .pg-lbl { font-size:10px; color:var(--text-muted); margin-top:4px; }
+        .pg-val { font-size:10px; color:var(--text-main); font-weight:bold; }
+        #wordedit-fields .custom-input { margin-bottom:8px; }
 
         .reverse-toggle { align-self:flex-end; margin-bottom:10px; background:var(--bg-color); color:var(--text-main); border:1px solid var(--border-color); padding:5px 12px; border-radius:14px; cursor:pointer; font-size:12px; font-weight:bold; }
 
@@ -225,6 +242,7 @@
             </div>
             <div>
                 <button class="mini-btn" onclick="toggleDarkMode()">🌙 Theme</button>
+                <button class="mini-btn" onclick="openProgress()">📅 Progress</button>
                 <button class="mini-btn" onclick="exportExcel()">💾 Backup</button>
             </div>
         </div>
@@ -400,8 +418,52 @@
         <div class="list-controls">
             <button class="toggle-btn" id="hide-de-btn" onclick="toggleHideGerman()">🙈 Hide German</button>
             <select id="list-filter" onchange="renderWordList()" style="display:none;"></select>
+            <button class="toggle-btn" id="bulk-btn" onclick="toggleBulk()">☑️ Select</button>
+        </div>
+        <div class="article-filter" id="article-filter" style="display:none;">
+            <button class="toggle-btn on" data-a="" onclick="setArticleFilter('')">All</button>
+            <button class="toggle-btn" data-a="der" onclick="setArticleFilter('der')">der</button>
+            <button class="toggle-btn" data-a="die" onclick="setArticleFilter('die')">die</button>
+            <button class="toggle-btn" data-a="das" onclick="setArticleFilter('das')">das</button>
+        </div>
+        <div class="single-actions" id="single-actions" style="display:none;">
+            <button class="toggle-btn" onclick="openWordEdit(null)">➕ Add word</button>
+            <button class="toggle-btn danger-txt" onclick="deleteWholeTable()">🗑️ Delete whole table</button>
+        </div>
+        <div class="bulk-bar" id="bulk-bar" style="display:none;">
+            <select id="bulk-tag"></select>
+            <button class="toggle-btn" onclick="bulkApplyTag()">Tag selected</button>
+            <button class="toggle-btn danger-txt" onclick="bulkDelete()">Delete selected</button>
+            <span id="bulk-count" style="font-size:12px; color:var(--text-muted);"></span>
         </div>
         <div id="list-body"></div>
+    </div>
+
+    <!-- ============ ADD / EDIT WORD MODAL ============ -->
+    <div class="modal-overlay" id="wordedit-modal">
+        <div class="modal" style="text-align:left;">
+            <h3 id="wordedit-title" style="text-align:center;">Add word</h3>
+            <div id="wordedit-fields"></div>
+            <button class="primary-btn" onclick="saveWordEdit()">Save</button>
+            <button class="link-btn" onclick="closeWordEdit()" style="display:block; margin:12px auto 0;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- ============ PROGRESS ============ -->
+    <div class="container" id="progress-area">
+        <div class="header-bar" style="padding-bottom:10px;">
+            <h2>📅 Progress</h2>
+            <button class="icon-btn" onclick="goHome()" title="Back">✖️</button>
+        </div>
+        <div style="margin-bottom:16px;">
+            <input type="date" id="progress-date" class="search-input" style="max-width:200px;" onchange="renderProgress()">
+        </div>
+        <div class="sum-line">
+            <div class="sum-box" style="background:var(--bg-color); color:var(--text-main);"><span id="pg-practiced">0</span><small>practised</small></div>
+            <div class="sum-box" style="background:var(--bg-color); color:var(--text-main);"><span id="pg-learned">0</span><small>newly learned</small></div>
+        </div>
+        <h3 style="margin:22px 0 12px; font-size:15px;">Last 7 days (practised)</h3>
+        <div id="pg-chart" class="pg-chart"></div>
     </div>
 
     <!-- ============ SESSION SUMMARY ============ -->
@@ -453,6 +515,13 @@
     let listEntries = [];
     let hideGerman = false;
     let listReturn = null;
+    let listArticleFilter = "";
+    let listSingleTable = null;   // set when browsing ONE table (enables add/delete table)
+    let bulkMode = false;
+    let bulkSelected = new Set();  // holds entry objects
+    let editEntry = null;          // entry being edited, or null when adding
+
+    let _activity = {};            // { "2026-07-05": {practiced:N, learned:M} }  (synced)
 
     let jumbleWords = [];
     let currentJumbleAnswer = [];
@@ -564,13 +633,13 @@
         if (!cleanName) return alert("Please use letters or numbers.");
         if (!knownProfiles.includes(cleanName)) { knownProfiles.push(cleanName); localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles)); }
         currentProfile = cleanName; localStorage.setItem("vocabProfile", currentProfile);
-        renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; loadCloudData();
+        renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; _activity = {}; loadCloudData();
     }
 
     function switchProfile() {
         currentProfile = document.getElementById("profile-select").value;
         localStorage.setItem("vocabProfile", currentProfile);
-        appData = {}; _headers = {}; _sections = {}; loadCloudData();
+        appData = {}; _headers = {}; _sections = {}; _activity = {}; loadCloudData();
     }
 
     async function triggerDeleteData() {
@@ -599,7 +668,7 @@
             knownProfiles = knownProfiles.filter(p => p !== currentProfile);
             localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles));
             currentProfile = knownProfiles[0]; localStorage.setItem("vocabProfile", currentProfile);
-            renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; loadCloudData(); toast("Profile deleted");
+            renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; _activity = {}; loadCloudData(); toast("Profile deleted");
         } catch (e) { console.error(e); alert("Could not delete from the cloud. Check your connection and try again."); }
     }
 
@@ -613,11 +682,11 @@
             const doc = await db.collection(COLLECTION).doc("data_" + currentProfile).get();
             if (doc.exists) {
                 const data = doc.data();
-                appData = data.tables || {}; _headers = data.headers || {}; _sections = data.sections || {};
+                appData = data.tables || {}; _headers = data.headers || {}; _sections = data.sections || {}; _activity = data.activity || {};
                 cacheLocal();
                 label.innerText = "✅ Synced: " + currentProfile; label.style.backgroundColor = "var(--green)";
             } else {
-                appData = {}; _headers = {}; _sections = {};
+                appData = {}; _headers = {}; _sections = {}; _activity = {};
                 label.innerText = "No data yet — import your Excel file to begin."; label.style.backgroundColor = "var(--red)";
             }
         } catch (e) {
@@ -625,10 +694,10 @@
             const cached = localStorage.getItem("cache_" + currentProfile);
             if (cached) {
                 const data = JSON.parse(cached);
-                appData = data.tables || {}; _headers = data.headers || {}; _sections = data.sections || {};
+                appData = data.tables || {}; _headers = data.headers || {}; _sections = data.sections || {}; _activity = data.activity || {};
                 label.innerText = "Offline — showing your last saved copy."; label.style.backgroundColor = "var(--amber)";
             } else {
-                appData = {}; _headers = {}; _sections = {};
+                appData = {}; _headers = {}; _sections = {}; _activity = {};
                 label.innerText = "❌ Could not connect and no offline copy found."; label.style.backgroundColor = "var(--red)";
             }
         }
@@ -637,12 +706,12 @@
     }
 
     function cacheLocal() {
-        try { localStorage.setItem("cache_" + currentProfile, JSON.stringify({ tables: appData, headers: _headers, sections: _sections })); } catch(e){}
+        try { localStorage.setItem("cache_" + currentProfile, JSON.stringify({ tables: appData, headers: _headers, sections: _sections, activity: _activity })); } catch(e){}
     }
     function saveData() {
         cacheLocal();
         db.collection(COLLECTION).doc("data_" + currentProfile)
-          .set({ tables: appData, headers: _headers, sections: _sections })
+          .set({ tables: appData, headers: _headers, sections: _sections, activity: _activity })
           .catch(err => { console.error("Cloud save failed", err); toast("Saved offline — will sync when back online"); });
     }
 
@@ -742,6 +811,7 @@
         document.getElementById("practice-area").style.display = (name === "practice") ? "flex"  : "none";
         document.getElementById("summary-area").style.display  = (name === "summary")  ? "flex"  : "none";
         document.getElementById("list-area").style.display     = (name === "list")     ? "block" : "none";
+        document.getElementById("progress-area").style.display = (name === "progress") ? "block" : "none";
     }
 
     function goHome() {
@@ -1183,18 +1253,50 @@
 
         if (currentMode === "Grammar") {
             appData[obj.tableName].forEach(w => { w.categories = Array.from(selectedTags); if (firstTime) updateSrs(w, true); });
+            if (firstTime) logActivity(false);
         } else {
             const item = appData[obj.tableName][obj.index];
+            const wasNew = isNew(item);
             item.categories = Array.from(selectedTags);
             item.comment = document.getElementById("comment-input").value;   // notes always saved
             const correct = (obj._correct !== undefined) ? obj._correct : true;
             if (firstTime) {
                 updateSrs(item, correct);
+                logActivity(wasNew);
                 if (obj._graded) { sessionStats.graded++; correct ? sessionStats.correct++ : sessionStats.wrong++; }
             }
         }
         if (firstTime) { gradedThisSession.add(currentIndex); bumpStreak(); }
         saveData(); currentIndex++; loadCard();
+    }
+
+    function logActivity(learned) {
+        const d = todayStr();
+        if (!_activity[d]) _activity[d] = { practiced:0, learned:0 };
+        _activity[d].practiced++;
+        if (learned) _activity[d].learned++;
+    }
+
+    function openProgress() {
+        showScreen("progress");
+        const el = document.getElementById("progress-date");
+        if (!el.value) el.value = todayStr();
+        renderProgress();
+    }
+    function renderProgress() {
+        const d = document.getElementById("progress-date").value || todayStr();
+        const a = _activity[d] || { practiced:0, learned:0 };
+        document.getElementById("pg-practiced").innerText = a.practiced || 0;
+        document.getElementById("pg-learned").innerText   = a.learned || 0;
+        const chart = document.getElementById("pg-chart"); chart.innerHTML = "";
+        const days = []; for (let i = 6; i >= 0; i--) days.push(addDays(todayStr(), -i));
+        const max = Math.max(1, ...days.map(x => _activity[x] ? _activity[x].practiced : 0));
+        days.forEach(x => {
+            const v = _activity[x] ? _activity[x].practiced : 0;
+            const bar = document.createElement("div"); bar.className = "pg-bar";
+            bar.innerHTML = '<div class="pg-val">' + v + '</div><div class="pg-fill" style="height:' + Math.round((v/max)*100) + '%"></div><div class="pg-lbl">' + x.slice(5) + '</div>';
+            chart.appendChild(bar);
+        });
     }
 
     // ==========================================================
@@ -1242,48 +1344,109 @@
         return { en, de, ex, speak, mode, tags: e.data.categories || [] };
     }
 
-    function openWordList(entries, title, returnFn) {
+    function openWordList(entries, title, returnFn, opts) {
+        opts = opts || {};
         listEntries = entries; listReturn = returnFn; hideGerman = false;
+        listArticleFilter = ""; listSingleTable = opts.singleTable || null;
+        bulkMode = false; bulkSelected = new Set();
         document.getElementById("list-title").innerText = title;
         document.getElementById("hide-de-btn").classList.remove("on");
         document.getElementById("hide-de-btn").innerText = "🙈 Hide German";
-        // filter dropdown from tags present
+        document.getElementById("bulk-btn").classList.remove("on");
+        document.getElementById("bulk-bar").style.display = "none";
+
+        // category filter dropdown
         const tags = new Set(); entries.forEach(e => (e.data.categories || []).forEach(t => tags.add(t)));
         const sel = document.getElementById("list-filter");
         if (tags.size) {
-            sel.style.display = "inline-block";
+            sel.style.display = "inline-block"; sel.value = "";
             sel.innerHTML = '<option value="">All tags</option>' + Array.from(tags).sort().map(t => '<option value="' + escapeHTML(t) + '">' + escapeHTML(t) + '</option>').join("");
         } else { sel.style.display = "none"; sel.innerHTML = ""; }
+
+        // article filter only when every entry is vocabulary
+        const vocabOnly = entries.length > 0 && entries.every(e => sectionOf(e.tableName) === "Vocabulary");
+        document.getElementById("article-filter").style.display = vocabOnly ? "flex" : "none";
+        document.querySelectorAll("#article-filter .toggle-btn").forEach(b => b.classList.toggle("on", b.getAttribute("data-a") === ""));
+
+        // add/delete-table actions only for a single table
+        document.getElementById("single-actions").style.display = listSingleTable ? "flex" : "none";
+
+        // bulk tag dropdown: union of tags for the modes present
+        const modes = new Set(entries.map(e => sectionOf(e.tableName)));
+        const bulkTags = new Set(); modes.forEach(m => (tagMaps[m] || []).forEach(t => bulkTags.add(t)));
+        document.getElementById("bulk-tag").innerHTML = '<option value="">Choose tag…</option>' + Array.from(bulkTags).map(t => '<option value="' + escapeHTML(t) + '">' + escapeHTML(t) + '</option>').join("");
+
         showScreen("list");
         renderWordList();
+    }
+
+    function articleOf(e) {
+        const de = (e.data.rowData || [])[1] || "";
+        const m = de.match(/^\s*(der|die|das)\b/i);
+        return m ? m[1].toLowerCase() : "";
     }
 
     function renderWordList() {
         const body = document.getElementById("list-body");
         const filter = document.getElementById("list-filter").value;
         body.innerHTML = "";
-        const rows = listEntries.filter(e => !filter || (e.data.categories || []).includes(filter));
+        let rows = listEntries.filter(e => !filter || (e.data.categories || []).includes(filter));
+        if (listArticleFilter) rows = rows.filter(e => articleOf(e) === listArticleFilter);
         if (rows.length === 0) { body.innerHTML = '<div class="empty-note">No words to show.</div>'; return; }
+
         rows.forEach(e => {
             const d = entryDisplay(e);
             const row = document.createElement("div"); row.className = "list-row";
+
+            if (bulkMode) {
+                const cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "row-check";
+                cb.checked = bulkSelected.has(e);
+                cb.onchange = () => { cb.checked ? bulkSelected.add(e) : bulkSelected.delete(e); updateBulkCount(); };
+                row.appendChild(cb);
+            }
 
             const enEl = document.createElement("span"); enEl.className = "list-en"; enEl.innerText = d.en;
             const deEl = document.createElement("span"); deEl.className = "list-de";
             if (hideGerman) {
                 deEl.classList.add("hidden-de"); deEl.innerText = "tap to reveal";
                 deEl.onclick = () => { deEl.classList.remove("hidden-de"); deEl.innerHTML = articleHTML(d.de); };
-            } else {
-                deEl.innerHTML = articleHTML(d.de);
-            }
-            const spk = document.createElement("button"); spk.className = "list-speak"; spk.innerText = "🔊";
-            spk.title = "Listen"; spk.onclick = () => speakText(d.speak || d.de);
+            } else { deEl.innerHTML = articleHTML(d.de); }
 
-            row.appendChild(enEl); row.appendChild(deEl); row.appendChild(spk);
+            const actions = document.createElement("span"); actions.className = "list-actions";
+            const spk = document.createElement("button"); spk.innerText = "🔊"; spk.title = "Listen"; spk.onclick = () => speakText(d.speak || d.de);
+            const edit = document.createElement("button"); edit.innerText = "✏️"; edit.title = "Edit"; edit.onclick = () => openWordEdit(e);
+            const del = document.createElement("button"); del.innerText = "🗑️"; del.title = "Delete"; del.onclick = () => deleteWord(e);
+            actions.appendChild(spk); actions.appendChild(edit); actions.appendChild(del);
+
+            row.appendChild(enEl); row.appendChild(deEl); row.appendChild(actions);
             if (d.ex) { const ex = document.createElement("span"); ex.className = "list-ex"; ex.innerText = "„" + d.ex + '"'; row.appendChild(ex); }
-            if (d.tags.length) { const tg = document.createElement("span"); tg.className = "list-tags"; tg.innerText = d.tags.map(t => "#" + t).join("  "); row.appendChild(tg); }
+
+            // inline category chips (tag from the list itself)
+            const mode = sectionOf(e.tableName);
+            const chips = document.createElement("div"); chips.className = "list-chips";
+            (tagMaps[mode] || []).forEach(tag => {
+                const c = document.createElement("button"); c.className = "list-chip"; c.innerText = tag;
+                if ((e.data.categories || []).includes(tag)) c.classList.add("selected");
+                c.onclick = () => toggleRowTag(e, tag, c);
+                chips.appendChild(c);
+            });
+            row.appendChild(chips);
             body.appendChild(row);
         });
+    }
+
+    function setArticleFilter(a) {
+        listArticleFilter = a;
+        document.querySelectorAll("#article-filter .toggle-btn").forEach(b => b.classList.toggle("on", b.getAttribute("data-a") === a));
+        renderWordList();
+    }
+
+    function toggleRowTag(entry, tag, chipEl) {
+        if (!entry.data.categories) entry.data.categories = [];
+        const i = entry.data.categories.indexOf(tag);
+        if (i >= 0) { entry.data.categories.splice(i, 1); chipEl.classList.remove("selected"); }
+        else { entry.data.categories.push(tag); chipEl.classList.add("selected"); }
+        saveData();
     }
 
     function toggleHideGerman() {
@@ -1295,17 +1458,103 @@
     }
     function closeWordList() { if (listReturn) listReturn(); else goHome(); }
 
+    // --- bulk select ---
+    function toggleBulk() {
+        bulkMode = !bulkMode; bulkSelected = new Set();
+        document.getElementById("bulk-btn").classList.toggle("on", bulkMode);
+        document.getElementById("bulk-bar").style.display = bulkMode ? "flex" : "none";
+        updateBulkCount(); renderWordList();
+    }
+    function updateBulkCount() { document.getElementById("bulk-count").innerText = bulkSelected.size + " selected"; }
+    function bulkApplyTag() {
+        const tag = document.getElementById("bulk-tag").value;
+        if (!tag) { toast("Choose a tag first"); return; }
+        if (bulkSelected.size === 0) { toast("Select some words first"); return; }
+        bulkSelected.forEach(e => { if (!e.data.categories) e.data.categories = []; if (!e.data.categories.includes(tag)) e.data.categories.push(tag); });
+        saveData(); renderWordList(); toast("Tagged " + bulkSelected.size + " words");
+    }
+    function bulkDelete() {
+        if (bulkSelected.size === 0) { toast("Select some words first"); return; }
+        if (!confirm("Delete " + bulkSelected.size + " selected words? This cannot be undone.")) return;
+        bulkSelected.forEach(e => {
+            const arr = appData[e.tableName]; const i = arr.indexOf(e.data);
+            if (i >= 0) arr.splice(i, 1);
+            const li = listEntries.indexOf(e); if (li >= 0) listEntries.splice(li, 1);
+        });
+        bulkSelected = new Set(); saveData(); updateBulkCount(); renderWordList(); toast("Deleted");
+    }
+
+    // --- add / edit / delete ---
+    function editColumns(mode, table) {
+        if (_headers[table] && _headers[table].length) return _headers[table].map(h => h || "");
+        return ({
+            Vocabulary: ["English","German","Plural / note","Example (optional)"],
+            Verbs:      ["English","Infinitive","Present","Past","Future"],
+            FillBlanks: ["English sentence","German with ___","Missing word"],
+            Sentences:  ["English","German"],
+            Jumble:     ["English","German (correct order)"],
+            Grammar:    ["Column 1","Column 2","Column 3","Column 4"]
+        })[mode] || ["English","German"];
+    }
+    function openWordEdit(entry) {
+        editEntry = entry;
+        const table = entry ? entry.tableName : listSingleTable;
+        if (!table) { toast("Open a single table to add words"); return; }
+        const cols = editColumns(sectionOf(table), table);
+        const row = entry ? (entry.data.rowData || []) : [];
+        document.getElementById("wordedit-title").innerText = entry ? "Edit word" : "Add word";
+        document.getElementById("wordedit-fields").innerHTML =
+            cols.map((c,i) => '<input class="custom-input" id="we-' + i + '" placeholder="' + escapeHTML(c) + '" value="' + escapeHTML(row[i] || "") + '">').join("");
+        document.getElementById("wordedit-modal").style.display = "flex";
+    }
+    function closeWordEdit() { document.getElementById("wordedit-modal").style.display = "none"; editEntry = null; }
+    function saveWordEdit() {
+        const wasEdit = !!editEntry;
+        const table = editEntry ? editEntry.tableName : listSingleTable;
+        const cols = editColumns(sectionOf(table), table);
+        const vals = cols.map((c,i) => { const el = document.getElementById("we-" + i); return el ? el.value : ""; });
+        if (!vals[0] || !vals[0].trim()) { toast("The first column can't be empty"); return; }
+        if (wasEdit) { editEntry.data.rowData = vals; }
+        else {
+            appData[table].push({ rowData: vals, categories:[], comment:"", lastPracticed:"", srs:{ box:0, seen:0, correct:0, wrong:0, nextDue:null } });
+            listEntries.push({ tableName: table, index: appData[table].length - 1, data: appData[table][appData[table].length - 1] });
+        }
+        saveData(); closeWordEdit(); renderWordList();
+        toast(wasEdit ? "Word updated" : "Word added");
+    }
+    function deleteWord(entry) {
+        if (!confirm("Delete this word?")) return;
+        const arr = appData[entry.tableName]; const i = arr.indexOf(entry.data);
+        if (i >= 0) arr.splice(i, 1);
+        const li = listEntries.indexOf(entry); if (li >= 0) listEntries.splice(li, 1);
+        bulkSelected.delete(entry);
+        saveData(); renderWordList(); toast("Word deleted");
+    }
+    function deleteWholeTable() {
+        const t = listSingleTable; if (!t) return;
+        const nm = displayName(t);
+        const ans = prompt('This permanently deletes ALL words in "' + nm + '".\nType  ' + nm + '  to confirm:');
+        if (ans !== nm) { toast("Cancelled — names did not match"); return; }
+        const mode = sectionOf(t);
+        delete appData[t]; delete _headers[t]; delete _sections[t];
+        if (appData._tableOrder) appData._tableOrder = appData._tableOrder.filter(x => x !== t);
+        saveData();
+        toast("Table deleted");
+        openSection(mode);
+    }
+
     // Entry points into the list
     function browseTable() {
         const t = selectedTableForModal;
+        const sec = sectionOf(t);
         closeModal();
         const entries = appData[t].map((w, i) => ({ tableName: t, index: i, data: w }));
-        openWordList(entries, displayName(t), () => openSection(sectionOf(t)));
+        openWordList(entries, displayName(t), () => openSection(sec), { singleTable: t });
     }
     function browseSection(mode) {
         const entries = [];
         tablesInSection(mode).forEach(t => appData[t].forEach((w, i) => entries.push({ tableName: t, index: i, data: w })));
-        openWordList(entries, HUBS.find(h => h.mode === mode).title + " — all words", () => openSection(mode));
+        openWordList(entries, HUBS.find(h => h.mode === mode).title + " — all words", () => openSection(mode), { sectionMode: mode });
     }
     function runSearch() {
         const q = (document.getElementById("search-input").value || "").trim().toLowerCase();
