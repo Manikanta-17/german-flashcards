@@ -181,6 +181,14 @@
         .art-der { color:#2f6fd6; } .art-die { color:#d64550; } .art-das { color:#e8730c; }
         [data-theme="dark"] .art-der { color:#6ea8ff; } [data-theme="dark"] .art-die { color:#ff8a94; } [data-theme="dark"] .art-das { color:#ffa64d; }
 
+        .filter-chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+        .fchip { font-size:12px; padding:5px 11px; border-radius:12px; border:1px solid var(--border-color); background:transparent; color:var(--text-main); cursor:pointer; }
+        .fchip.on { background:var(--teal); color:#fff; border-color:var(--teal); }
+        .fchip.untagged.on { background:#6c757d; border-color:#6c757d; }
+        .fchip.mode { background:var(--bg-color); font-weight:bold; }
+        .fchip.addcat { border-style:dashed; color:var(--accent); border-color:var(--accent); }
+        .filter-label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.5px; margin-right:2px; }
+
         .article-filter, .single-actions { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
         .bulk-bar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; background:var(--bg-color); padding:10px; border-radius:8px; }
         .list-actions { display:flex; gap:4px; }
@@ -417,8 +425,11 @@
         </div>
         <div class="list-controls">
             <button class="toggle-btn" id="hide-de-btn" onclick="toggleHideGerman()">🙈 Hide German</button>
-            <select id="list-filter" onchange="renderWordList()" style="display:none;"></select>
             <button class="toggle-btn" id="bulk-btn" onclick="toggleBulk()">☑️ Select</button>
+        </div>
+        <div class="filter-chips" id="tag-filter">
+            <span class="filter-label">Tags</span>
+            <!-- chips injected here -->
         </div>
         <div class="article-filter" id="article-filter" style="display:none;">
             <button class="toggle-btn on" data-a="" onclick="setArticleFilter('')">All</button>
@@ -516,6 +527,10 @@
     let hideGerman = false;
     let listReturn = null;
     let listArticleFilter = "";
+    let listTagFilter = new Set();   // multi-select tag filter
+    let listUntaggedOnly = false;    // show only words with no tags
+    let listMatchAll = false;        // false = ANY selected tag, true = ALL selected tags
+    let _customCats = {};            // { Vocabulary:["Exam","Site visit"], ... }  (synced)
     let listSingleTable = null;   // set when browsing ONE table (enables add/delete table)
     let bulkMode = false;
     let bulkSelected = new Set();  // holds entry objects
@@ -545,6 +560,25 @@
     };
 
     const SRS_INTERVALS = [0, 1, 3, 7, 16, 35];
+
+    // built-in tags for a mode + any custom categories the user created
+    function tagsFor(mode) {
+        const base = tagMaps[mode] || tagMaps["Vocabulary"] || [];
+        const custom = _customCats[mode] || [];
+        return base.concat(custom.filter(c => !base.includes(c)));
+    }
+    function addCustomCategory(mode) {
+        const name = prompt("Name your new category (e.g. Exam, Site visit):");
+        if (!name || !name.trim()) return;
+        const clean = name.trim();
+        if (!_customCats[mode]) _customCats[mode] = [];
+        if (tagsFor(mode).includes(clean)) { toast("That category already exists"); return; }
+        _customCats[mode].push(clean);
+        saveData();
+        renderTagFilter();
+        renderWordList();
+        toast('Category "' + clean + '" added');
+    }
 
     let knownProfiles = JSON.parse(localStorage.getItem("knownProfiles")) || ["main"];
     let currentProfile = localStorage.getItem("vocabProfile") || "main";
@@ -633,13 +667,13 @@
         if (!cleanName) return alert("Please use letters or numbers.");
         if (!knownProfiles.includes(cleanName)) { knownProfiles.push(cleanName); localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles)); }
         currentProfile = cleanName; localStorage.setItem("vocabProfile", currentProfile);
-        renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; _activity = {}; loadCloudData();
+        renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {}; loadCloudData();
     }
 
     function switchProfile() {
         currentProfile = document.getElementById("profile-select").value;
         localStorage.setItem("vocabProfile", currentProfile);
-        appData = {}; _headers = {}; _sections = {}; _activity = {}; loadCloudData();
+        appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {}; loadCloudData();
     }
 
     async function triggerDeleteData() {
@@ -668,7 +702,7 @@
             knownProfiles = knownProfiles.filter(p => p !== currentProfile);
             localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles));
             currentProfile = knownProfiles[0]; localStorage.setItem("vocabProfile", currentProfile);
-            renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; _activity = {}; loadCloudData(); toast("Profile deleted");
+            renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {}; loadCloudData(); toast("Profile deleted");
         } catch (e) { console.error(e); alert("Could not delete from the cloud. Check your connection and try again."); }
     }
 
@@ -682,11 +716,11 @@
             const doc = await db.collection(COLLECTION).doc("data_" + currentProfile).get();
             if (doc.exists) {
                 const data = doc.data();
-                appData = data.tables || {}; _headers = data.headers || {}; _sections = data.sections || {}; _activity = data.activity || {};
+                appData = data.tables || {}; _headers = data.headers || {}; _sections = data.sections || {}; _activity = data.activity || {}; _customCats = data.customCats || {};
                 cacheLocal();
                 label.innerText = "✅ Synced: " + currentProfile; label.style.backgroundColor = "var(--green)";
             } else {
-                appData = {}; _headers = {}; _sections = {}; _activity = {};
+                appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {};
                 label.innerText = "No data yet — import your Excel file to begin."; label.style.backgroundColor = "var(--red)";
             }
         } catch (e) {
@@ -694,10 +728,10 @@
             const cached = localStorage.getItem("cache_" + currentProfile);
             if (cached) {
                 const data = JSON.parse(cached);
-                appData = data.tables || {}; _headers = data.headers || {}; _sections = data.sections || {}; _activity = data.activity || {};
+                appData = data.tables || {}; _headers = data.headers || {}; _sections = data.sections || {}; _activity = data.activity || {}; _customCats = data.customCats || {};
                 label.innerText = "Offline — showing your last saved copy."; label.style.backgroundColor = "var(--amber)";
             } else {
-                appData = {}; _headers = {}; _sections = {}; _activity = {};
+                appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {};
                 label.innerText = "❌ Could not connect and no offline copy found."; label.style.backgroundColor = "var(--red)";
             }
         }
@@ -706,12 +740,12 @@
     }
 
     function cacheLocal() {
-        try { localStorage.setItem("cache_" + currentProfile, JSON.stringify({ tables: appData, headers: _headers, sections: _sections, activity: _activity })); } catch(e){}
+        try { localStorage.setItem("cache_" + currentProfile, JSON.stringify({ tables: appData, headers: _headers, sections: _sections, activity: _activity, customCats: _customCats })); } catch(e){}
     }
     function saveData() {
         cacheLocal();
         db.collection(COLLECTION).doc("data_" + currentProfile)
-          .set({ tables: appData, headers: _headers, sections: _sections, activity: _activity })
+          .set({ tables: appData, headers: _headers, sections: _sections, activity: _activity, customCats: _customCats })
           .catch(err => { console.error("Cloud save failed", err); toast("Saved offline — will sync when back online"); });
     }
 
@@ -1236,7 +1270,7 @@
     function renderCategoryButtons() {
         const container = document.getElementById("category-container");
         container.innerHTML = "";
-        (tagMaps[currentMode] || tagMaps["Vocabulary"]).forEach(cat => {
+        tagsFor(currentMode).forEach(cat => {
             const btn = document.createElement("button");
             btn.className = "cat-btn"; btn.innerText = cat;
             btn.onclick = () => {
@@ -1348,20 +1382,13 @@
         opts = opts || {};
         listEntries = entries; listReturn = returnFn; hideGerman = false;
         listArticleFilter = ""; listSingleTable = opts.singleTable || null;
+        listTagFilter = new Set(); listUntaggedOnly = false; listMatchAll = false;
         bulkMode = false; bulkSelected = new Set();
         document.getElementById("list-title").innerText = title;
         document.getElementById("hide-de-btn").classList.remove("on");
         document.getElementById("hide-de-btn").innerText = "🙈 Hide German";
         document.getElementById("bulk-btn").classList.remove("on");
         document.getElementById("bulk-bar").style.display = "none";
-
-        // category filter dropdown
-        const tags = new Set(); entries.forEach(e => (e.data.categories || []).forEach(t => tags.add(t)));
-        const sel = document.getElementById("list-filter");
-        if (tags.size) {
-            sel.style.display = "inline-block"; sel.value = "";
-            sel.innerHTML = '<option value="">All tags</option>' + Array.from(tags).sort().map(t => '<option value="' + escapeHTML(t) + '">' + escapeHTML(t) + '</option>').join("");
-        } else { sel.style.display = "none"; sel.innerHTML = ""; }
 
         // article filter only when every entry is vocabulary
         const vocabOnly = entries.length > 0 && entries.every(e => sectionOf(e.tableName) === "Vocabulary");
@@ -1373,11 +1400,63 @@
 
         // bulk tag dropdown: union of tags for the modes present
         const modes = new Set(entries.map(e => sectionOf(e.tableName)));
-        const bulkTags = new Set(); modes.forEach(m => (tagMaps[m] || []).forEach(t => bulkTags.add(t)));
+        const bulkTags = new Set(); modes.forEach(m => tagsFor(m).forEach(t => bulkTags.add(t)));
         document.getElementById("bulk-tag").innerHTML = '<option value="">Choose tag…</option>' + Array.from(bulkTags).map(t => '<option value="' + escapeHTML(t) + '">' + escapeHTML(t) + '</option>').join("");
 
+        renderTagFilter();
         showScreen("list");
         renderWordList();
+    }
+
+    // The multi-select tag filter row (chips): Not tagged · every tag · Any/All · + New category
+    function renderTagFilter() {
+        const bar = document.getElementById("tag-filter");
+        const modes = new Set(listEntries.map(e => sectionOf(e.tableName)));
+        const allTags = new Set(); modes.forEach(m => tagsFor(m).forEach(t => allTags.add(t)));
+        bar.innerHTML = '<span class="filter-label">Tags</span>';
+
+        // "Not tagged"
+        const un = document.createElement("button");
+        un.className = "fchip untagged" + (listUntaggedOnly ? " on" : "");
+        un.innerText = "Not tagged";
+        un.onclick = () => { listUntaggedOnly = !listUntaggedOnly; if (listUntaggedOnly) listTagFilter.clear(); renderTagFilter(); renderWordList(); };
+        bar.appendChild(un);
+
+        Array.from(allTags).forEach(t => {
+            const c = document.createElement("button");
+            c.className = "fchip" + (listTagFilter.has(t) ? " on" : "");
+            c.innerText = t;
+            c.onclick = () => {
+                if (listTagFilter.has(t)) listTagFilter.delete(t); else { listTagFilter.add(t); listUntaggedOnly = false; }
+                renderTagFilter(); renderWordList();
+            };
+            bar.appendChild(c);
+        });
+
+        // Any / All match mode (only meaningful with 2+ tags picked)
+        if (listTagFilter.size > 1) {
+            const m = document.createElement("button");
+            m.className = "fchip mode";
+            m.innerText = listMatchAll ? "Match: ALL" : "Match: ANY";
+            m.title = "Switch between matching any selected tag or all of them";
+            m.onclick = () => { listMatchAll = !listMatchAll; renderTagFilter(); renderWordList(); };
+            bar.appendChild(m);
+        }
+        if (listTagFilter.size || listUntaggedOnly) {
+            const clr = document.createElement("button");
+            clr.className = "fchip"; clr.innerText = "✕ Clear";
+            clr.onclick = () => { listTagFilter.clear(); listUntaggedOnly = false; renderTagFilter(); renderWordList(); };
+            bar.appendChild(clr);
+        }
+
+        // + New category (single-mode lists only, so we know where to file it)
+        if (modes.size === 1) {
+            const mode = Array.from(modes)[0];
+            const add = document.createElement("button");
+            add.className = "fchip addcat"; add.innerText = "+ New category";
+            add.onclick = () => addCustomCategory(mode);
+            bar.appendChild(add);
+        }
     }
 
     function articleOf(e) {
@@ -1388,11 +1467,23 @@
 
     function renderWordList() {
         const body = document.getElementById("list-body");
-        const filter = document.getElementById("list-filter").value;
         body.innerHTML = "";
-        let rows = listEntries.filter(e => !filter || (e.data.categories || []).includes(filter));
+        let rows = listEntries.slice();
+
+        // tag filters
+        if (listUntaggedOnly) {
+            rows = rows.filter(e => (e.data.categories || []).length === 0);
+        } else if (listTagFilter.size) {
+            const picked = Array.from(listTagFilter);
+            rows = rows.filter(e => {
+                const cats = e.data.categories || [];
+                return listMatchAll ? picked.every(t => cats.includes(t)) : picked.some(t => cats.includes(t));
+            });
+        }
+        // article filter
         if (listArticleFilter) rows = rows.filter(e => articleOf(e) === listArticleFilter);
-        if (rows.length === 0) { body.innerHTML = '<div class="empty-note">No words to show.</div>'; return; }
+
+        if (rows.length === 0) { body.innerHTML = '<div class="empty-note">No words match these filters.</div>'; return; }
 
         rows.forEach(e => {
             const d = entryDisplay(e);
@@ -1424,7 +1515,7 @@
             // inline category chips (tag from the list itself)
             const mode = sectionOf(e.tableName);
             const chips = document.createElement("div"); chips.className = "list-chips";
-            (tagMaps[mode] || []).forEach(tag => {
+            tagsFor(mode).forEach(tag => {
                 const c = document.createElement("button"); c.className = "list-chip"; c.innerText = tag;
                 if ((e.data.categories || []).includes(tag)) c.classList.add("selected");
                 c.onclick = () => toggleRowTag(e, tag, c);
@@ -1447,6 +1538,8 @@
         if (i >= 0) { entry.data.categories.splice(i, 1); chipEl.classList.remove("selected"); }
         else { entry.data.categories.push(tag); chipEl.classList.add("selected"); }
         saveData();
+        // if a tag filter is active, the row may no longer belong in the list
+        if (listTagFilter.size || listUntaggedOnly) renderWordList();
     }
 
     function toggleHideGerman() {
