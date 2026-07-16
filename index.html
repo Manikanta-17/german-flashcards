@@ -8,7 +8,7 @@
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="manifest" href="manifest.json">
 
-    <title>German LMS V7</title>
+    <title>German LMS V7</title> 
 
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -106,6 +106,15 @@
         .modal { background:var(--card-bg); padding:25px; border-radius:12px; width:100%; max-width:400px; text-align:center; }
         .modal .link-btn { margin-top:18px; background:none; border:none; color:var(--text-muted);
             cursor:pointer; text-decoration:underline; }
+
+        /* Selection quick-add */
+        #selection-fab { display:none; position:absolute; z-index:900; background:var(--accent);
+            color:#fff; border:none; border-radius:20px; padding:8px 14px; font-size:13px; font-weight:bold;
+            cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,0.25); }
+        #selection-fab::before { content:"➕ Add to vocab"; }
+        .quickadd-text { background:var(--bg-color); border:1px solid var(--border-color); border-radius:8px;
+            padding:10px 12px; margin-bottom:12px; font-style:italic; word-break:break-word; }
+        .quickadd-newtable-row { display:flex; flex-direction:column; gap:0; }
 
         /* Practice */
         #practice-area, #summary-area { display:none; flex-direction:column; align-items:center; width:100%; max-width:520px; }
@@ -213,9 +222,12 @@
         .streak-line { font-size:13px; color:var(--text-muted); margin-bottom:12px; text-align:center; }
 
         #list-area { display:none; }
+        .list-sticky { position:sticky; top:0; z-index:5; background:var(--card-bg);
+            margin:-25px -25px 0; padding:25px 25px 10px; border-bottom:1px solid var(--border-color); }
         .list-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
         .list-row { display:flex; align-items:center; gap:10px; padding:12px 4px; border-bottom:1px solid var(--border-color); flex-wrap:wrap; }
         .list-row:last-child { border-bottom:none; }
+        .list-num { color:var(--text-muted); font-size:12px; min-width:22px; }
         .list-en { flex:1; font-weight:bold; min-width:120px; }
         .list-de { flex:1; text-align:right; min-width:120px; }
         .list-de.hidden-de { color:var(--text-muted); cursor:pointer; font-style:italic; font-weight:normal; }
@@ -228,6 +240,7 @@
         @media (max-width:520px) {
             body { padding:12px; }
             .container { padding:18px; }
+            .list-sticky { margin:-18px -18px 0; padding:18px 18px 10px; }
             .card-face { font-size:22px; }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -419,33 +432,35 @@
 
     <!-- ============ WORD LIST (browse) ============ -->
     <div class="container" id="list-area">
-        <div class="header-bar" style="padding-bottom:10px;">
-            <h2 id="list-title">Words</h2>
-            <button class="icon-btn" onclick="closeWordList()" title="Back">✖️</button>
-        </div>
-        <div class="list-controls">
-            <button class="toggle-btn" id="hide-de-btn" onclick="toggleHideGerman()">🙈 Hide German</button>
-            <button class="toggle-btn" id="bulk-btn" onclick="toggleBulk()">☑️ Select</button>
-        </div>
-        <div class="filter-chips" id="tag-filter">
-            <span class="filter-label">Tags</span>
-            <!-- chips injected here -->
-        </div>
-        <div class="article-filter" id="article-filter" style="display:none;">
-            <button class="toggle-btn on" data-a="" onclick="setArticleFilter('')">All</button>
-            <button class="toggle-btn" data-a="der" onclick="setArticleFilter('der')">der</button>
-            <button class="toggle-btn" data-a="die" onclick="setArticleFilter('die')">die</button>
-            <button class="toggle-btn" data-a="das" onclick="setArticleFilter('das')">das</button>
-        </div>
-        <div class="single-actions" id="single-actions" style="display:none;">
-            <button class="toggle-btn" onclick="openWordEdit(null)">➕ Add word</button>
-            <button class="toggle-btn danger-txt" onclick="deleteWholeTable()">🗑️ Delete whole table</button>
-        </div>
-        <div class="bulk-bar" id="bulk-bar" style="display:none;">
-            <select id="bulk-tag"></select>
-            <button class="toggle-btn" onclick="bulkApplyTag()">Tag selected</button>
-            <button class="toggle-btn danger-txt" onclick="bulkDelete()">Delete selected</button>
-            <span id="bulk-count" style="font-size:12px; color:var(--text-muted);"></span>
+        <div class="list-sticky">
+            <div class="header-bar" style="padding-bottom:10px;">
+                <h2 id="list-title">Words</h2>
+                <button class="icon-btn" onclick="closeWordList()" title="Back">✖️</button>
+            </div>
+            <div class="list-controls">
+                <button class="toggle-btn" id="hide-de-btn" onclick="toggleHideGerman()">🙈 Hide German</button>
+                <button class="toggle-btn" id="bulk-btn" onclick="toggleBulk()">☑️ Select</button>
+            </div>
+            <div class="filter-chips" id="tag-filter">
+                <span class="filter-label">Tags</span>
+                <!-- chips injected here -->
+            </div>
+            <div class="article-filter" id="article-filter" style="display:none;">
+                <button class="toggle-btn on" data-a="" onclick="setArticleFilter('')">All</button>
+                <button class="toggle-btn" data-a="der" onclick="setArticleFilter('der')">der</button>
+                <button class="toggle-btn" data-a="die" onclick="setArticleFilter('die')">die</button>
+                <button class="toggle-btn" data-a="das" onclick="setArticleFilter('das')">das</button>
+            </div>
+            <div class="single-actions" id="single-actions" style="display:none;">
+                <button class="toggle-btn" onclick="openWordEdit(null)">➕ Add word</button>
+                <button class="toggle-btn danger-txt" onclick="deleteWholeTable()">🗑️ Delete whole table</button>
+            </div>
+            <div class="bulk-bar" id="bulk-bar" style="display:none;">
+                <select id="bulk-tag"></select>
+                <button class="toggle-btn" onclick="bulkApplyTag()">Tag selected</button>
+                <button class="toggle-btn danger-txt" onclick="bulkDelete()">Delete selected</button>
+                <span id="bulk-count" style="font-size:12px; color:var(--text-muted);"></span>
+            </div>
         </div>
         <div id="list-body"></div>
     </div>
@@ -457,6 +472,23 @@
             <div id="wordedit-fields"></div>
             <button class="primary-btn" onclick="saveWordEdit()">Save</button>
             <button class="link-btn" onclick="closeWordEdit()" style="display:block; margin:12px auto 0;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- ============ SELECTION QUICK-ADD ============ -->
+    <button id="selection-fab" onclick="openQuickAdd(this.dataset.text)"></button>
+    <div class="modal-overlay" id="quickadd-modal">
+        <div class="modal" style="text-align:left;">
+            <h3 style="text-align:center;">Add to vocab</h3>
+            <div id="quickadd-text" class="quickadd-text"></div>
+            <select id="quickadd-target" class="custom-input" onchange="quickAddTargetChanged()"></select>
+            <div id="quickadd-newtable-row" class="quickadd-newtable-row" style="display:none;">
+                <input class="custom-input" id="quickadd-newtable-name" placeholder="New table name">
+                <select id="quickadd-newtable-section" class="custom-input" onchange="quickAddTargetChanged()"></select>
+            </div>
+            <div id="quickadd-fields"></div>
+            <button class="primary-btn" onclick="saveQuickAdd()">Save</button>
+            <button class="link-btn" onclick="closeQuickAdd()" style="display:block; margin:12px auto 0;">Cancel</button>
         </div>
     </div>
 
@@ -535,6 +567,7 @@
     let bulkMode = false;
     let bulkSelected = new Set();  // holds entry objects
     let editEntry = null;          // entry being edited, or null when adding
+    let quickAddText = "";         // text captured from the page selection, for the quick-add modal
 
     let _activity = {};            // { "2026-07-05": {practiced:N, learned:M} }  (synced)
 
@@ -1485,9 +1518,12 @@
 
         if (rows.length === 0) { body.innerHTML = '<div class="empty-note">No words match these filters.</div>'; return; }
 
-        rows.forEach(e => {
+        rows.forEach((e, i) => {
             const d = entryDisplay(e);
             const row = document.createElement("div"); row.className = "list-row";
+
+            const numEl = document.createElement("span"); numEl.className = "list-num"; numEl.innerText = (i + 1) + ".";
+            row.appendChild(numEl);
 
             if (bulkMode) {
                 const cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "row-check";
@@ -1499,8 +1535,13 @@
             const enEl = document.createElement("span"); enEl.className = "list-en"; enEl.innerText = d.en;
             const deEl = document.createElement("span"); deEl.className = "list-de";
             if (hideGerman) {
-                deEl.classList.add("hidden-de"); deEl.innerText = "tap to reveal";
-                deEl.onclick = () => { deEl.classList.remove("hidden-de"); deEl.innerHTML = articleHTML(d.de); };
+                let revealed = false;
+                const paintDe = () => {
+                    deEl.classList.toggle("hidden-de", !revealed);
+                    deEl.innerHTML = revealed ? articleHTML(d.de) : "tap to reveal";
+                };
+                deEl.onclick = () => { revealed = !revealed; paintDe(); };
+                paintDe();
             } else { deEl.innerHTML = articleHTML(d.de); }
 
             const actions = document.createElement("span"); actions.className = "list-actions";
@@ -1634,6 +1675,95 @@
         saveData();
         toast("Table deleted");
         openSection(mode);
+    }
+
+    // --- Global "select text -> add to vocab" quick-add ---
+    function handleTextSelection(ev) {
+        if (ev.target.closest && ev.target.closest("#selection-fab, #quickadd-modal, #wordedit-modal")) return;
+        const sel = window.getSelection();
+        const text = sel && sel.rangeCount ? sel.toString().trim() : "";
+        if (!text) { hideSelectionFab(); return; }
+        const rect = sel.getRangeAt(0).getBoundingClientRect();
+        if (!rect || (rect.width === 0 && rect.height === 0)) { hideSelectionFab(); return; }
+        showSelectionFab(text, rect);
+    }
+    function showSelectionFab(text, rect) {
+        const fab = document.getElementById("selection-fab");
+        fab.dataset.text = text;
+        const top = Math.max(8, rect.top + window.scrollY - 40);
+        const maxLeft = window.scrollX + document.documentElement.clientWidth - 160;
+        const left = Math.max(8, Math.min(rect.left + window.scrollX, maxLeft));
+        fab.style.top = top + "px";
+        fab.style.left = left + "px";
+        fab.style.display = "block";
+    }
+    function hideSelectionFab() {
+        const fab = document.getElementById("selection-fab");
+        if (fab) fab.style.display = "none";
+    }
+    document.addEventListener("mouseup", handleTextSelection);
+    document.addEventListener("touchend", handleTextSelection);
+    document.addEventListener("scroll", hideSelectionFab, true);
+
+    function openQuickAdd(text) {
+        if (!text) return;
+        hideSelectionFab();
+        quickAddText = text;
+        document.getElementById("quickadd-text").innerText = text;
+
+        const target = document.getElementById("quickadd-target");
+        target.innerHTML = HUBS.map(h => {
+            const opts = tablesInSection(h.mode).map(t => '<option value="' + escapeHTML(t) + '">' + escapeHTML(displayName(t)) + '</option>').join("");
+            return opts ? '<optgroup label="' + escapeHTML(h.title) + '">' + opts + '</optgroup>' : "";
+        }).join("") + '<option value="__new__">+ Create new table…</option>';
+
+        document.getElementById("quickadd-newtable-section").innerHTML =
+            HUBS.map(h => '<option value="' + h.mode + '">' + escapeHTML(h.title) + '</option>').join("");
+        document.getElementById("quickadd-newtable-name").value = "";
+
+        quickAddTargetChanged();
+        document.getElementById("quickadd-modal").style.display = "flex";
+    }
+    function quickAddTargetChanged() {
+        const val = document.getElementById("quickadd-target").value;
+        const isNew = val === "__new__";
+        document.getElementById("quickadd-newtable-row").style.display = isNew ? "flex" : "none";
+        const mode = isNew ? document.getElementById("quickadd-newtable-section").value : sectionOf(val);
+        const cols = editColumns(mode, isNew ? null : val);
+        document.getElementById("quickadd-fields").innerHTML =
+            cols.map((c,i) => '<input class="custom-input" id="qa-' + i + '" placeholder="' + escapeHTML(c) + '" value="' + (i === 0 ? escapeHTML(quickAddText) : "") + '">').join("");
+    }
+    function closeQuickAdd() { document.getElementById("quickadd-modal").style.display = "none"; }
+    function saveQuickAdd() {
+        const val = document.getElementById("quickadd-target").value;
+        if (!val) { toast("Choose where to save this word"); return; }
+        let table = val, mode;
+        if (val === "__new__") {
+            const name = document.getElementById("quickadd-newtable-name").value.trim();
+            if (!name) { toast("Enter a name for the new table"); return; }
+            if (appData[name]) { toast("A table with that name already exists"); return; }
+            mode = document.getElementById("quickadd-newtable-section").value;
+            const order = appData._tableOrder || realTables();
+            appData[name] = [];
+            _sections[name] = mode;
+            appData._tableOrder = order.concat([name]);
+            table = name;
+        } else {
+            mode = sectionOf(table);
+        }
+        const cols = editColumns(mode, val === "__new__" ? null : table);
+        const vals = cols.map((c,i) => { const el = document.getElementById("qa-" + i); return el ? el.value : ""; });
+        if (!vals[0] || !vals[0].trim()) { toast("The first column can't be empty"); return; }
+
+        const wordEntry = { rowData: vals, categories:[], comment:"", lastPracticed:"", srs:{ box:0, seen:0, correct:0, wrong:0, nextDue:null } };
+        appData[table].push(wordEntry);
+        if (listSingleTable === table) listEntries.push({ tableName: table, index: appData[table].length - 1, data: wordEntry });
+
+        saveData();
+        closeQuickAdd();
+        if (window.getSelection) window.getSelection().removeAllRanges();
+        if (document.getElementById("list-area").style.display !== "none" && listSingleTable === table) renderWordList();
+        toast("Added to " + displayName(table));
     }
 
     // Entry points into the list
