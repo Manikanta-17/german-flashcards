@@ -210,6 +210,10 @@
 
         .pg-chart { display:flex; gap:8px; align-items:flex-end; height:150px; }
         .pg-bar { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+        .settings-block { margin-bottom:20px; }
+        .settings-label { display:block; font-weight:bold; margin-bottom:8px; }
+        .kl-hub-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border-color); }
+        .kl-hub-row input { width:70px; text-align:center; }
         .pg-fill { width:70%; background:var(--accent); border-radius:4px 4px 0 0; min-height:2px; }
         .pg-lbl { font-size:10px; color:var(--text-muted); margin-top:4px; }
         .pg-val { font-size:10px; color:var(--text-main); font-weight:bold; }
@@ -231,6 +235,7 @@
         .list-en { flex:1; font-weight:bold; min-width:120px; }
         .list-de { flex:1; text-align:right; min-width:120px; }
         .list-de.hidden-de { color:var(--text-muted); cursor:pointer; font-style:italic; font-weight:normal; }
+        .list-de.simple-de { flex:1; text-align:left; font-size:18px; font-weight:600; }
         .list-ex { flex-basis:100%; font-size:12px; color:var(--text-muted); font-style:italic; }
         .list-tags { flex-basis:100%; font-size:11px; color:var(--teal); }
         .list-speak { background:none; border:none; cursor:pointer; font-size:18px; color:var(--text-main); }
@@ -264,7 +269,9 @@
             <div>
                 <button class="mini-btn" onclick="toggleDarkMode()">🌙 Theme</button>
                 <button class="mini-btn" onclick="openProgress()">📅 Progress</button>
+                <button class="mini-btn" onclick="openSettings()">⚙️ Settings</button>
                 <button class="mini-btn" onclick="exportExcel()">💾 Backup</button>
+                <button class="mini-btn" id="install-app-btn" onclick="installApp()" style="display:none;">⬇️ Install app</button>
             </div>
         </div>
 
@@ -440,6 +447,7 @@
             <div class="list-controls">
                 <button class="toggle-btn" id="hide-de-btn" onclick="toggleHideGerman()">🙈 Hide German</button>
                 <button class="toggle-btn" id="bulk-btn" onclick="toggleBulk()">☑️ Select</button>
+                <button class="toggle-btn" id="simple-list-btn" onclick="toggleSimpleList()">🔤 Simple List</button>
             </div>
             <div class="filter-chips" id="tag-filter">
                 <span class="filter-label">Tags</span>
@@ -509,12 +517,49 @@
         <div id="pg-chart" class="pg-chart"></div>
     </div>
 
+    <!-- ============ SETTINGS ============ -->
+    <div class="container" id="settings-area">
+        <div class="header-bar" style="padding-bottom:10px;">
+            <h2>⚙️ Settings</h2>
+            <button class="icon-btn" onclick="goHome()" title="Back">✖️</button>
+        </div>
+        <div class="settings-block">
+            <label class="settings-label">Daily practice target (items/day)</label>
+            <input type="number" id="set-daily-target" class="custom-input" min="1" style="max-width:120px;" onchange="saveSettingsFromForm()">
+        </div>
+        <div class="settings-block">
+            <label class="settings-label"><input type="checkbox" id="set-reminders-enabled" onchange="onRemindersToggle()"> Remind me to practice</label>
+        </div>
+        <div class="settings-block" id="reminder-fields">
+            <label class="settings-label">Remind me every
+                <select id="set-reminder-freq" class="custom-input" style="width:auto; display:inline-block;" onchange="saveSettingsFromForm()">
+                    <option value="1">1 hour</option>
+                    <option value="2">2 hours</option>
+                    <option value="3">3 hours</option>
+                    <option value="4">4 hours</option>
+                    <option value="6">6 hours</option>
+                </select>
+            </label>
+            <label class="settings-label">Between
+                <input type="time" id="set-reminder-start" class="custom-input" style="width:auto; display:inline-block;" onchange="saveSettingsFromForm()">
+                and
+                <input type="time" id="set-reminder-end" class="custom-input" style="width:auto; display:inline-block;" onchange="saveSettingsFromForm()">
+            </label>
+            <p style="color:var(--text-muted); font-size:13px;">Reminders only fire while this app is open (or recently active) on this device — they won't reach you if it's been fully closed for a while.</p>
+        </div>
+    </div>
+
     <!-- ============ SESSION SUMMARY ============ -->
     <div class="container" id="summary-area">
         <div class="summary-card">
             <div class="summary-score" id="sum-score">0 / 0</div>
             <p id="sum-line" style="color:var(--text-muted); font-size:16px;"></p>
             <button class="primary-btn" onclick="exitPractice()">Back</button>
+            <div id="keep-learning-panel" style="display:none; margin-top:24px; text-align:left;">
+                <h3 style="text-align:center;">🎯 Daily goal reached! Keep learning?</h3>
+                <div id="kl-hub-rows"></div>
+                <button class="primary-btn" onclick="startExtraPractice()" style="margin-top:12px;">Start extra practice</button>
+            </div>
         </div>
     </div>
 
@@ -537,6 +582,37 @@
     const COLLECTION = "vocabAppV7";
 
     // ==========================================================
+    // 1b. PWA (service worker + install prompt)
+    // ==========================================================
+    let swRegistration = null;
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("sw.js").then(reg => { swRegistration = reg; }).catch(() => {});
+        });
+    }
+
+    let deferredInstallPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        const btn = document.getElementById("install-app-btn");
+        if (btn) btn.style.display = "inline-block";
+    });
+    window.addEventListener("appinstalled", () => {
+        deferredInstallPrompt = null;
+        const btn = document.getElementById("install-app-btn");
+        if (btn) btn.style.display = "none";
+    });
+    async function installApp() {
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        const btn = document.getElementById("install-app-btn");
+        if (btn) btn.style.display = "none";
+    }
+
+    // ==========================================================
     // 2. STATE
     // ==========================================================
     let appData = {};      // { _tableOrder:[], "AnyTableName":[ {rowData,categories,comment,lastPracticed,srs} ] }
@@ -557,6 +633,7 @@
     // Word-list (browse) state
     let listEntries = [];
     let hideGerman = false;
+    let simpleListMode = false;  // true = numbered German-only quick-recall list
     let listReturn = null;
     let listArticleFilter = "";
     let listTagFilter = new Set();   // multi-select tag filter
@@ -621,6 +698,8 @@
         renderHubs();
         renderProfileDropdown();
         loadCloudData();
+        loadSettings();
+        startReminderEngine();
         document.addEventListener("keydown", onKeyShortcut);
     };
 
@@ -639,6 +718,11 @@
     // 3. HELPERS
     // ==========================================================
     function todayStr() { return new Date().toISOString().split("T")[0]; }
+    function shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+        return a;
+    }
     function addDays(dateStr, n) { const d = new Date(dateStr + "T00:00:00"); d.setDate(d.getDate() + n); return d.toISOString().split("T")[0]; }
     function ensureSrs(item) { if (!item.srs) item.srs = { box:0, seen:0, correct:0, wrong:0, nextDue:null }; return item.srs; }
     function isDue(item) { const s = item.srs; if (!s || !s.nextDue) return true; return s.nextDue <= todayStr(); }
@@ -700,13 +784,13 @@
         if (!cleanName) return alert("Please use letters or numbers.");
         if (!knownProfiles.includes(cleanName)) { knownProfiles.push(cleanName); localStorage.setItem("knownProfiles", JSON.stringify(knownProfiles)); }
         currentProfile = cleanName; localStorage.setItem("vocabProfile", currentProfile);
-        renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {}; loadCloudData();
+        renderProfileDropdown(); appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {}; loadCloudData(); loadSettings();
     }
 
     function switchProfile() {
         currentProfile = document.getElementById("profile-select").value;
         localStorage.setItem("vocabProfile", currentProfile);
-        appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {}; loadCloudData();
+        appData = {}; _headers = {}; _sections = {}; _activity = {}; _customCats = {}; loadCloudData(); loadSettings();
     }
 
     async function triggerDeleteData() {
@@ -879,6 +963,7 @@
         document.getElementById("summary-area").style.display  = (name === "summary")  ? "flex"  : "none";
         document.getElementById("list-area").style.display     = (name === "list")     ? "block" : "none";
         document.getElementById("progress-area").style.display = (name === "progress") ? "block" : "none";
+        document.getElementById("settings-area").style.display = (name === "settings") ? "block" : "none";
     }
 
     function goHome() {
@@ -1047,6 +1132,24 @@
         practiceQueue = buildSectionQueue(mode, isDue);
         if (practiceQueue.length === 0) { toast("Nothing due here — nice work!"); return; }
         startSession();
+    }
+
+    // Extra "keep learning" queue: N items per requested hub, due items first, then new, then the rest.
+    function buildMultiSectionQueue(countsByHub) {
+        const key = e => e.tableName + "#" + e.index;
+        const queue = [];
+        Object.keys(countsByHub).forEach(hub => {
+            const count = countsByHub[hub];
+            if (!count || count <= 0) return;
+            const due = buildSectionQueue(hub, isDue);
+            const usedKeys = new Set(due.map(key));
+            const fresh = buildSectionQueue(hub, isNew).filter(e => !usedKeys.has(key(e)));
+            fresh.forEach(e => usedKeys.add(key(e)));
+            const rest = buildSectionQueue(hub, () => true).filter(e => !usedKeys.has(key(e)));
+            const pool = shuffle(due).concat(shuffle(fresh)).concat(shuffle(rest));
+            queue.push(...pool.slice(0, count));
+        });
+        return queue;
     }
 
     // ==========================================================
@@ -1391,6 +1494,89 @@
     }
 
     // ==========================================================
+    // SETTINGS  (device-local — daily target + reminder prefs; not synced)
+    // ==========================================================
+    function settingsKey() { return "settings_" + currentProfile; }
+    function defaultSettings() {
+        return { dailyTarget: 20, remindersEnabled: false, reminderFrequencyHours: 3, reminderStart: "09:00", reminderEnd: "21:00", lastReminderAt: null };
+    }
+    let _settings = defaultSettings();
+    function loadSettings() {
+        try { _settings = Object.assign(defaultSettings(), JSON.parse(localStorage.getItem(settingsKey())) || {}); }
+        catch (e) { _settings = defaultSettings(); }
+    }
+    function saveSettings() { localStorage.setItem(settingsKey(), JSON.stringify(_settings)); }
+
+    function todayPracticedCount() { return (_activity[todayStr()] && _activity[todayStr()].practiced) || 0; }
+    function dailyTargetReached() { return todayPracticedCount() >= _settings.dailyTarget; }
+
+    function openSettings() {
+        loadSettings();
+        document.getElementById("set-daily-target").value = _settings.dailyTarget;
+        document.getElementById("set-reminders-enabled").checked = _settings.remindersEnabled;
+        document.getElementById("set-reminder-freq").value = String(_settings.reminderFrequencyHours);
+        document.getElementById("set-reminder-start").value = _settings.reminderStart;
+        document.getElementById("set-reminder-end").value = _settings.reminderEnd;
+        document.getElementById("reminder-fields").style.display = _settings.remindersEnabled ? "block" : "none";
+        showScreen("settings");
+    }
+
+    async function onRemindersToggle() {
+        const cb = document.getElementById("set-reminders-enabled");
+        if (cb.checked && "Notification" in window) {
+            if (Notification.permission === "default") {
+                const perm = await Notification.requestPermission();
+                if (perm !== "granted") cb.checked = false;
+            } else if (Notification.permission === "denied") {
+                cb.checked = false;
+                toast("Notifications are blocked for this site — enable them in your browser settings first");
+            }
+        }
+        document.getElementById("reminder-fields").style.display = cb.checked ? "block" : "none";
+        saveSettingsFromForm();
+    }
+
+    function saveSettingsFromForm() {
+        _settings.dailyTarget = Math.max(1, parseInt(document.getElementById("set-daily-target").value, 10) || 20);
+        _settings.remindersEnabled = document.getElementById("set-reminders-enabled").checked;
+        _settings.reminderFrequencyHours = parseInt(document.getElementById("set-reminder-freq").value, 10) || 3;
+        _settings.reminderStart = document.getElementById("set-reminder-start").value || "09:00";
+        _settings.reminderEnd = document.getElementById("set-reminder-end").value || "21:00";
+        saveSettings();
+    }
+
+    // ==========================================================
+    // REMINDER ENGINE  (local-only: fires while this app is open on this device)
+    // ==========================================================
+    function startReminderEngine() {
+        setInterval(checkReminder, 60 * 1000);
+    }
+    function checkReminder() {
+        if (!_settings.remindersEnabled) return;
+        if (!("Notification" in window) || Notification.permission !== "granted") return;
+        if (dailyTargetReached()) return;
+
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, "0"), mm = String(now.getMinutes()).padStart(2, "0");
+        const nowStr = hh + ":" + mm;
+        if (nowStr < _settings.reminderStart || nowStr > _settings.reminderEnd) return;
+
+        const last = _settings.lastReminderAt ? new Date(_settings.lastReminderAt) : null;
+        const hoursSince = last ? (now - last) / 3600000 : Infinity;
+        if (hoursSince < _settings.reminderFrequencyHours) return;
+
+        const remaining = _settings.dailyTarget - todayPracticedCount();
+        const body = remaining + " item" + (remaining === 1 ? "" : "s") + " left to hit today's goal — quick practice?";
+        if (swRegistration) {
+            swRegistration.showNotification("Time to practice German 🇩🇪", { body, icon: "icon.png" });
+        } else if (Notification.permission === "granted") {
+            new Notification("Time to practice German 🇩🇪", { body, icon: "icon.png" });
+        }
+        _settings.lastReminderAt = now.toISOString();
+        saveSettings();
+    }
+
+    // ==========================================================
     // ARTICLE COLOUR + WORD LIST (browse) + SEARCH
     // ==========================================================
     function escapeHTML(s) { return (s == null ? "" : s.toString()).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
@@ -1416,12 +1602,15 @@
         listEntries = entries; listReturn = returnFn; hideGerman = false;
         listArticleFilter = ""; listSingleTable = opts.singleTable || null;
         listTagFilter = new Set(); listUntaggedOnly = false; listMatchAll = false;
-        bulkMode = false; bulkSelected = new Set();
+        bulkMode = false; bulkSelected = new Set(); simpleListMode = false;
         document.getElementById("list-title").innerText = title;
         document.getElementById("hide-de-btn").classList.remove("on");
         document.getElementById("hide-de-btn").innerText = "🙈 Hide German";
+        document.getElementById("hide-de-btn").style.display = "";
         document.getElementById("bulk-btn").classList.remove("on");
+        document.getElementById("bulk-btn").style.display = "";
         document.getElementById("bulk-bar").style.display = "none";
+        document.getElementById("simple-list-btn").classList.remove("on");
 
         // article filter only when every entry is vocabulary
         const vocabOnly = entries.length > 0 && entries.every(e => sectionOf(e.tableName) === "Vocabulary");
@@ -1525,6 +1714,16 @@
             const numEl = document.createElement("span"); numEl.className = "list-num"; numEl.innerText = (i + 1) + ".";
             row.appendChild(numEl);
 
+            if (simpleListMode) {
+                const deEl = document.createElement("span"); deEl.className = "list-de simple-de"; deEl.innerHTML = articleHTML(d.de);
+                const actions = document.createElement("span"); actions.className = "list-actions";
+                const spk = document.createElement("button"); spk.innerText = "🔊"; spk.title = "Listen"; spk.onclick = () => speakText(d.speak || d.de);
+                actions.appendChild(spk);
+                row.appendChild(deEl); row.appendChild(actions);
+                body.appendChild(row);
+                return;
+            }
+
             if (bulkMode) {
                 const cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "row-check";
                 cb.checked = bulkSelected.has(e);
@@ -1591,6 +1790,15 @@
         renderWordList();
     }
     function closeWordList() { if (listReturn) listReturn(); else goHome(); }
+
+    function toggleSimpleList() {
+        simpleListMode = !simpleListMode;
+        document.getElementById("simple-list-btn").classList.toggle("on", simpleListMode);
+        document.getElementById("hide-de-btn").style.display = simpleListMode ? "none" : "";
+        document.getElementById("bulk-btn").style.display = simpleListMode ? "none" : "";
+        if (simpleListMode && bulkMode) toggleBulk();
+        renderWordList();
+    }
 
     // --- bulk select ---
     function toggleBulk() {
@@ -1805,6 +2013,36 @@
             document.getElementById("sum-score").innerText = practiceQueue.length;
             document.getElementById("sum-line").innerText = "items reviewed. Nice work!";
         }
+        renderKeepLearningPanel();
+    }
+
+    function renderKeepLearningPanel() {
+        const panel = document.getElementById("keep-learning-panel");
+        if (!dailyTargetReached()) { panel.style.display = "none"; return; }
+        const rows = document.getElementById("kl-hub-rows");
+        rows.innerHTML = "";
+        HUBS.filter(h => h.mode !== "Grammar" && tablesInSection(h.mode).length > 0).forEach(h => {
+            const row = document.createElement("div"); row.className = "kl-hub-row";
+            const label = document.createElement("span"); label.innerText = h.icon + " " + h.title;
+            const input = document.createElement("input");
+            input.type = "number"; input.min = "0"; input.value = "0"; input.dataset.hub = h.mode;
+            row.appendChild(label); row.appendChild(input);
+            rows.appendChild(row);
+        });
+        panel.style.display = "block";
+    }
+
+    function startExtraPractice() {
+        const counts = {};
+        document.querySelectorAll("#kl-hub-rows input").forEach(inp => {
+            const n = parseInt(inp.value, 10) || 0;
+            if (n > 0) counts[inp.dataset.hub] = n;
+        });
+        if (Object.keys(counts).length === 0) { toast("Pick at least one item to keep going"); return; }
+        const queue = buildMultiSectionQueue(counts);
+        if (queue.length === 0) { toast("No items available in those sections right now"); return; }
+        practiceQueue = queue;
+        startSession();
     }
 
     function exitPractice() {
