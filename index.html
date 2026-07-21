@@ -321,7 +321,7 @@
     </div>
 
     <!-- ============ PRACTICE AREA ============ -->
-    <div class="container" id="practice-area">
+    <div class="container" id="practice-area" style="display:none;">
         <div class="header-bar" style="width:100%; border:none; padding-bottom:0;">
             <span id="progress-text" style="font-weight:bold; color:var(--text-muted);">Item 1 of X</span>
             <button class="icon-btn" onclick="exitPractice()" title="Exit practice">✖️</button>
@@ -438,7 +438,7 @@
     </div>
 
     <!-- ============ WORD LIST (browse) ============ -->
-    <div class="container" id="list-area">
+    <div class="container" id="list-area" style="display:none;">
         <div class="list-sticky">
             <div class="header-bar" style="padding-bottom:10px;">
                 <h2 id="list-title">Words</h2>
@@ -501,7 +501,7 @@
     </div>
 
     <!-- ============ PROGRESS ============ -->
-    <div class="container" id="progress-area">
+    <div class="container" id="progress-area" style="display:none;">
         <div class="header-bar" style="padding-bottom:10px;">
             <h2>📅 Progress</h2>
             <button class="icon-btn" onclick="goHome()" title="Back">✖️</button>
@@ -518,7 +518,7 @@
     </div>
 
     <!-- ============ SETTINGS ============ -->
-    <div class="container" id="settings-area">
+    <div class="container" id="settings-area" style="display:none;">
         <div class="header-bar" style="padding-bottom:10px;">
             <h2>⚙️ Settings</h2>
             <button class="icon-btn" onclick="goHome()" title="Back">✖️</button>
@@ -550,7 +550,7 @@
     </div>
 
     <!-- ============ SESSION SUMMARY ============ -->
-    <div class="container" id="summary-area">
+    <div class="container" id="summary-area" style="display:none;">
         <div class="summary-card">
             <div class="summary-score" id="sum-score">0 / 0</div>
             <p id="sum-line" style="color:var(--text-muted); font-size:16px;"></p>
@@ -1523,10 +1523,16 @@
 
     async function onRemindersToggle() {
         const cb = document.getElementById("set-reminders-enabled");
-        if (cb.checked && "Notification" in window) {
-            if (Notification.permission === "default") {
+        if (cb.checked) {
+            if (!("Notification" in window)) {
+                cb.checked = false;
+                toast("This browser doesn't support notifications — reminders can't be scheduled here");
+            } else if (Notification.permission === "default") {
                 const perm = await Notification.requestPermission();
-                if (perm !== "granted") cb.checked = false;
+                if (perm !== "granted") {
+                    cb.checked = false;
+                    toast("Notification permission wasn't granted — reminders can't be scheduled without it");
+                }
             } else if (Notification.permission === "denied") {
                 cb.checked = false;
                 toast("Notifications are blocked for this site — enable them in your browser settings first");
