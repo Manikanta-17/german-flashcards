@@ -44,7 +44,9 @@
             outline:3px solid var(--accent); outline-offset:2px; }
 
         .icon-btn { background:none; border:none; font-size:24px; cursor:pointer; color:var(--text-main);
-            display:flex; align-items:center; justify-content:center; }
+            display:flex; align-items:center; justify-content:center; position:relative; }
+        .icon-btn.pending::after { content:""; position:absolute; top:2px; right:2px; width:9px; height:9px;
+            border-radius:50%; background:var(--accent); border:2px solid var(--bg-color); }
         .primary-btn { background-color:var(--accent); color:#fff; border:none; padding:12px 15px;
             border-radius:8px; cursor:pointer; font-weight:bold; width:100%; margin-top:10px; font-size:15px; }
         .primary-btn:hover { background-color:var(--accent-dark); }
@@ -106,6 +108,10 @@
         .modal { background:var(--card-bg); padding:25px; border-radius:12px; width:100%; max-width:400px; text-align:center; }
         .modal .link-btn { margin-top:18px; background:none; border:none; color:var(--text-muted);
             cursor:pointer; text-decoration:underline; }
+        .tagpicker-list { max-height:260px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:8px;
+            padding:4px 2px; }
+        .tagpicker-list .fchip { padding:7px 14px; }
+        .tagpicker-empty { color:var(--text-muted); font-size:13px; text-align:center; width:100%; }
 
         /* Selection quick-add */
         #selection-fab { display:none; position:absolute; z-index:900; background:var(--accent);
@@ -442,7 +448,10 @@
         <div class="list-sticky">
             <div class="header-bar" style="padding-bottom:10px;">
                 <h2 id="list-title">Words</h2>
-                <button class="icon-btn" onclick="closeWordList()" title="Back">✖️</button>
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <button class="icon-btn" id="list-refresh-btn" onclick="applyListFilter()" title="Apply tag filter (Enter)">🔄</button>
+                    <button class="icon-btn" onclick="closeWordList()" title="Back">✖️</button>
+                </div>
             </div>
             <div class="list-controls">
                 <button class="toggle-btn" id="hide-de-btn" onclick="toggleHideGerman()">🙈 Hide German</button>
@@ -497,6 +506,15 @@
             <div id="quickadd-fields"></div>
             <button class="primary-btn" onclick="saveQuickAdd()">Save</button>
             <button class="link-btn" onclick="closeQuickAdd()" style="display:block; margin:12px auto 0;">Cancel</button>
+        </div>
+    </div>
+
+    <!-- ============ TAG PICKER (Simple List right-click) ============ -->
+    <div class="modal-overlay" id="tagpicker-modal" onclick="if(event.target===this) closeTagPicker()">
+        <div class="modal" style="text-align:left;">
+            <h3 id="tagpicker-title" style="text-align:center;">Tags</h3>
+            <div id="tagpicker-list" class="tagpicker-list"></div>
+            <button class="link-btn" onclick="closeTagPicker()" style="display:block; margin:12px auto 0;">Done</button>
         </div>
     </div>
 
@@ -636,9 +654,14 @@
     let simpleListMode = false;  // true = numbered German-only quick-recall list
     let listReturn = null;
     let listArticleFilter = "";
-    let listTagFilter = new Set();   // multi-select tag filter
-    let listUntaggedOnly = false;    // show only words with no tags
-    let listMatchAll = false;        // false = ANY selected tag, true = ALL selected tags
+    let listTagFilter = new Set();   // multi-select tag filter (pending — chip selection, not yet applied)
+    let listUntaggedOnly = false;    // show only words with no tags (pending)
+    let listMatchAll = false;        // false = ANY selected tag, true = ALL selected tags (pending)
+    let appliedTagFilter = new Set();   // last filter actually used to render the list
+    let appliedUntaggedOnly = false;
+    let appliedMatchAll = false;
+    let tagPickerEntry = null;   // entry currently open in the Simple List right-click tag picker
+    let listNeedsRefresh = false;   // an inline tag edit may have changed which rows match the applied filter
     let _customCats = {};            // { Vocabulary:["Exam","Site visit"], ... }  (synced)
     let listSingleTable = null;   // set when browsing ONE table (enables add/delete table)
     let bulkMode = false;
@@ -704,7 +727,13 @@
     };
 
     // Keyboard: ← previous · → next/skip · Enter save (only during practice, not while typing)
+    // Also: Enter applies the pending tag filter while the word-list screen is open.
     function onKeyShortcut(e) {
+        if (document.getElementById("list-area").style.display !== "none") {
+            const tag = (document.activeElement && document.activeElement.tagName) || "";
+            if (e.key === "Enter" && tag !== "TEXTAREA") { e.preventDefault(); applyListFilter(); }
+            return;
+        }
         if (document.getElementById("practice-area").style.display === "none") return;
         const tag = (document.activeElement && document.activeElement.tagName) || "";
         const typing = (tag === "INPUT" || tag === "TEXTAREA");
@@ -1608,6 +1637,7 @@
         listEntries = entries; listReturn = returnFn; hideGerman = false;
         listArticleFilter = ""; listSingleTable = opts.singleTable || null;
         listTagFilter = new Set(); listUntaggedOnly = false; listMatchAll = false;
+        appliedTagFilter = new Set(); appliedUntaggedOnly = false; appliedMatchAll = false;
         bulkMode = false; bulkSelected = new Set(); simpleListMode = false;
         document.getElementById("list-title").innerText = title;
         document.getElementById("hide-de-btn").classList.remove("on");
@@ -1637,6 +1667,8 @@
     }
 
     // The multi-select tag filter row (chips): Not tagged · every tag · Any/All · + New category
+    // Clicking a chip only changes the PENDING selection (highlights it) — the visible list is not
+    // re-filtered until applyListFilter() runs (refresh icon or Enter), so words don't vanish mid-pick.
     function renderTagFilter() {
         const bar = document.getElementById("tag-filter");
         const modes = new Set(listEntries.map(e => sectionOf(e.tableName)));
@@ -1647,7 +1679,7 @@
         const un = document.createElement("button");
         un.className = "fchip untagged" + (listUntaggedOnly ? " on" : "");
         un.innerText = "Not tagged";
-        un.onclick = () => { listUntaggedOnly = !listUntaggedOnly; if (listUntaggedOnly) listTagFilter.clear(); renderTagFilter(); renderWordList(); };
+        un.onclick = () => { listUntaggedOnly = !listUntaggedOnly; if (listUntaggedOnly) listTagFilter.clear(); renderTagFilter(); };
         bar.appendChild(un);
 
         Array.from(allTags).forEach(t => {
@@ -1656,7 +1688,7 @@
             c.innerText = t;
             c.onclick = () => {
                 if (listTagFilter.has(t)) listTagFilter.delete(t); else { listTagFilter.add(t); listUntaggedOnly = false; }
-                renderTagFilter(); renderWordList();
+                renderTagFilter();
             };
             bar.appendChild(c);
         });
@@ -1667,13 +1699,14 @@
             m.className = "fchip mode";
             m.innerText = listMatchAll ? "Match: ALL" : "Match: ANY";
             m.title = "Switch between matching any selected tag or all of them";
-            m.onclick = () => { listMatchAll = !listMatchAll; renderTagFilter(); renderWordList(); };
+            m.onclick = () => { listMatchAll = !listMatchAll; renderTagFilter(); };
             bar.appendChild(m);
         }
         if (listTagFilter.size || listUntaggedOnly) {
             const clr = document.createElement("button");
             clr.className = "fchip"; clr.innerText = "✕ Clear";
-            clr.onclick = () => { listTagFilter.clear(); listUntaggedOnly = false; renderTagFilter(); renderWordList(); };
+            // Clearing is a reset, not a pick-in-progress — apply it immediately.
+            clr.onclick = () => { listTagFilter.clear(); listUntaggedOnly = false; listMatchAll = false; renderTagFilter(); applyListFilter(); };
             bar.appendChild(clr);
         }
 
@@ -1685,6 +1718,35 @@
             add.onclick = () => addCustomCategory(mode);
             bar.appendChild(add);
         }
+
+        updateListRefreshBtn();
+    }
+
+    // Copies the pending tag selection into the applied filter and re-renders the list.
+    // Called by the refresh icon, Enter key (list screen), and any reset action.
+    function applyListFilter() {
+        appliedTagFilter = new Set(listTagFilter);
+        appliedUntaggedOnly = listUntaggedOnly;
+        appliedMatchAll = listMatchAll;
+        listNeedsRefresh = false;
+        renderWordList();
+        updateListRefreshBtn();
+    }
+
+    // Lights up the refresh icon whenever the pending selection (or underlying data,
+    // e.g. inline row tag edits) hasn't been applied to the visible list yet.
+    function listFilterIsDirty() {
+        if (listNeedsRefresh) return true;
+        if (listUntaggedOnly !== appliedUntaggedOnly) return true;
+        if (listMatchAll !== appliedMatchAll) return true;
+        if (listTagFilter.size !== appliedTagFilter.size) return true;
+        for (const t of listTagFilter) if (!appliedTagFilter.has(t)) return true;
+        return false;
+    }
+
+    function updateListRefreshBtn() {
+        const btn = document.getElementById("list-refresh-btn");
+        if (btn) btn.classList.toggle("pending", listFilterIsDirty());
     }
 
     function articleOf(e) {
@@ -1698,14 +1760,14 @@
         body.innerHTML = "";
         let rows = listEntries.slice();
 
-        // tag filters
-        if (listUntaggedOnly) {
+        // tag filters — uses the APPLIED filter, not the in-progress chip selection
+        if (appliedUntaggedOnly) {
             rows = rows.filter(e => (e.data.categories || []).length === 0);
-        } else if (listTagFilter.size) {
-            const picked = Array.from(listTagFilter);
+        } else if (appliedTagFilter.size) {
+            const picked = Array.from(appliedTagFilter);
             rows = rows.filter(e => {
                 const cats = e.data.categories || [];
-                return listMatchAll ? picked.every(t => cats.includes(t)) : picked.some(t => cats.includes(t));
+                return appliedMatchAll ? picked.every(t => cats.includes(t)) : picked.some(t => cats.includes(t));
             });
         }
         // article filter
@@ -1726,6 +1788,8 @@
                 const spk = document.createElement("button"); spk.innerText = "🔊"; spk.title = "Listen"; spk.onclick = () => speakText(d.speak || d.de);
                 actions.appendChild(spk);
                 row.appendChild(deEl); row.appendChild(actions);
+                row.title = "Right-click to change tags";
+                row.oncontextmenu = (ev) => { ev.preventDefault(); openTagPicker(e); };
                 body.appendChild(row);
                 return;
             }
@@ -1781,11 +1845,50 @@
     function toggleRowTag(entry, tag, chipEl) {
         if (!entry.data.categories) entry.data.categories = [];
         const i = entry.data.categories.indexOf(tag);
-        if (i >= 0) { entry.data.categories.splice(i, 1); chipEl.classList.remove("selected"); }
-        else { entry.data.categories.push(tag); chipEl.classList.add("selected"); }
+        if (i >= 0) { entry.data.categories.splice(i, 1); if (chipEl) chipEl.classList.remove("selected"); }
+        else { entry.data.categories.push(tag); if (chipEl) chipEl.classList.add("selected"); }
         saveData();
-        // if a tag filter is active, the row may no longer belong in the list
-        if (listTagFilter.size || listUntaggedOnly) renderWordList();
+        // Row stays put even if it no longer matches the applied filter — only refresh
+        // (icon or Enter) re-checks membership, so tagging several words in a row doesn't
+        // make each one jump out of the list as you go.
+        if (appliedTagFilter.size || appliedUntaggedOnly) { listNeedsRefresh = true; updateListRefreshBtn(); }
+    }
+
+    // Simple List right-click tag picker: change a word's tags without leaving the quick-recall
+    // view. Applies immediately to the word itself, but (like inline chips) the visible list only
+    // drops/re-includes the row on the next refresh, so picking several tags in a row is calm.
+    function openTagPicker(entry) {
+        tagPickerEntry = entry;
+        const d = entryDisplay(entry);
+        document.getElementById("tagpicker-title").innerHTML = "Tags — " + articleHTML(d.de);
+        renderTagPicker();
+        document.getElementById("tagpicker-modal").style.display = "flex";
+    }
+    function renderTagPicker() {
+        const entry = tagPickerEntry;
+        const list = document.getElementById("tagpicker-list");
+        if (!entry) { list.innerHTML = ""; return; }
+        const mode = sectionOf(entry.tableName);
+        const tags = tagsFor(mode);
+        if (!tags.length) { list.innerHTML = '<div class="tagpicker-empty">No categories yet for this table.</div>'; }
+        else {
+            list.innerHTML = "";
+            tags.forEach(tag => {
+                const c = document.createElement("button");
+                c.className = "fchip" + ((entry.data.categories || []).includes(tag) ? " on" : "");
+                c.innerText = tag;
+                c.onclick = () => { toggleRowTag(entry, tag, null); renderTagPicker(); };
+                list.appendChild(c);
+            });
+        }
+        const add = document.createElement("button");
+        add.className = "fchip addcat"; add.innerText = "+ New category";
+        add.onclick = () => { addCustomCategory(mode); renderTagPicker(); };
+        list.appendChild(add);
+    }
+    function closeTagPicker() {
+        document.getElementById("tagpicker-modal").style.display = "none";
+        tagPickerEntry = null;
     }
 
     function toggleHideGerman() {
