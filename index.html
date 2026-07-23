@@ -239,6 +239,7 @@
         .list-row:last-child { border-bottom:none; }
         .list-num { color:var(--text-muted); font-size:12px; min-width:22px; }
         .list-en { flex:1; font-weight:bold; min-width:120px; }
+        .list-en.hidden-en { color:var(--text-muted); cursor:pointer; font-style:italic; font-weight:normal; }
         .list-de { flex:1; text-align:right; min-width:120px; }
         .list-de.hidden-de { color:var(--text-muted); cursor:pointer; font-style:italic; font-weight:normal; }
         .list-de.simple-de { flex:1; text-align:left; font-size:18px; font-weight:600; }
@@ -454,6 +455,7 @@
                 </div>
             </div>
             <div class="list-controls">
+                <button class="toggle-btn" id="hide-en-btn" onclick="toggleHideEnglish()">🙈 Hide English</button>
                 <button class="toggle-btn" id="hide-de-btn" onclick="toggleHideGerman()">🙈 Hide German</button>
                 <button class="toggle-btn" id="bulk-btn" onclick="toggleBulk()">☑️ Select</button>
                 <button class="toggle-btn" id="simple-list-btn" onclick="toggleSimpleList()">🔤 Simple List</button>
@@ -651,6 +653,7 @@
     // Word-list (browse) state
     let listEntries = [];
     let hideGerman = false;
+    let hideEnglish = false;
     let simpleListMode = false;  // true = numbered German-only quick-recall list
     let listReturn = null;
     let listArticleFilter = "";
@@ -1634,12 +1637,15 @@
 
     function openWordList(entries, title, returnFn, opts) {
         opts = opts || {};
-        listEntries = entries; listReturn = returnFn; hideGerman = false;
+        listEntries = entries; listReturn = returnFn; hideGerman = false; hideEnglish = false;
         listArticleFilter = ""; listSingleTable = opts.singleTable || null;
         listTagFilter = new Set(); listUntaggedOnly = false; listMatchAll = false;
         appliedTagFilter = new Set(); appliedUntaggedOnly = false; appliedMatchAll = false;
         bulkMode = false; bulkSelected = new Set(); simpleListMode = false;
         document.getElementById("list-title").innerText = title;
+        document.getElementById("hide-en-btn").classList.remove("on");
+        document.getElementById("hide-en-btn").innerText = "🙈 Hide English";
+        document.getElementById("hide-en-btn").style.display = "";
         document.getElementById("hide-de-btn").classList.remove("on");
         document.getElementById("hide-de-btn").innerText = "🙈 Hide German";
         document.getElementById("hide-de-btn").style.display = "";
@@ -1801,7 +1807,17 @@
                 row.appendChild(cb);
             }
 
-            const enEl = document.createElement("span"); enEl.className = "list-en"; enEl.innerText = d.en;
+            const enEl = document.createElement("span"); enEl.className = "list-en";
+            if (hideEnglish) {
+                let revealedEn = false;
+                const paintEn = () => {
+                    enEl.classList.toggle("hidden-en", !revealedEn);
+                    enEl.innerText = revealedEn ? d.en : "tap to reveal";
+                };
+                enEl.onclick = () => { revealedEn = !revealedEn; paintEn(); };
+                paintEn();
+            } else { enEl.innerText = d.en; }
+
             const deEl = document.createElement("span"); deEl.className = "list-de";
             if (hideGerman) {
                 let revealed = false;
@@ -1898,11 +1914,19 @@
         btn.innerText = hideGerman ? "👁 Show German" : "🙈 Hide German";
         renderWordList();
     }
+    function toggleHideEnglish() {
+        hideEnglish = !hideEnglish;
+        const btn = document.getElementById("hide-en-btn");
+        btn.classList.toggle("on", hideEnglish);
+        btn.innerText = hideEnglish ? "👁 Show English" : "🙈 Hide English";
+        renderWordList();
+    }
     function closeWordList() { if (listReturn) listReturn(); else goHome(); }
 
     function toggleSimpleList() {
         simpleListMode = !simpleListMode;
         document.getElementById("simple-list-btn").classList.toggle("on", simpleListMode);
+        document.getElementById("hide-en-btn").style.display = simpleListMode ? "none" : "";
         document.getElementById("hide-de-btn").style.display = simpleListMode ? "none" : "";
         document.getElementById("bulk-btn").style.display = simpleListMode ? "none" : "";
         if (simpleListMode && bulkMode) toggleBulk();
